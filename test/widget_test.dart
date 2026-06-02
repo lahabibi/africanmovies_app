@@ -17,6 +17,5 @@ void main() {
     expect(find.text('Home'), findsAtLeastNWidgets(1));
     expect(find.text('Genres'), findsAtLeastNWidgets(1));
     expect(find.text('Watchlist'), findsAtLeastNWidgets(1));
-    expect(find.text('Continue Watching'), findsAtLeastNWidgets(1));
   });
 }

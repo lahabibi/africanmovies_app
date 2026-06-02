@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
+import 'app_image.dart';
 
 class SectionMovieCard extends StatelessWidget {
   final String image;
@@ -17,7 +18,7 @@ class SectionMovieCard extends StatelessWidget {
     this.width,
     this.height,
     this.borderRadius,
-    this.onTap
+    this.onTap,
   });
 
   @override
@@ -29,18 +30,10 @@ class SectionMovieCard extends StatelessWidget {
         height: height ?? 168.h,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(
-            borderRadius ?? AppRadius.sm,
-          ),
-          border: Border.all(
-            color: AppColors.cardBorder,
-            width: 0.8,
-          ),
+          borderRadius: BorderRadius.circular(borderRadius ?? AppRadius.sm),
+          border: Border.all(color: AppColors.cardBorder, width: 0.8),
         ),
-        child: Image.asset(
-          image,
-          fit: BoxFit.cover,
-        ),
+        child: AppImage(source: image),
       ),
     );
   }

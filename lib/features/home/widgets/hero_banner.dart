@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_image.dart';
 
 enum HeroBannerType { image, video }
 
@@ -58,7 +59,7 @@ class HeroBanner extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned.fill(child: Image.asset(image, fit: BoxFit.cover)),
+          Positioned.fill(child: AppImage(source: image)),
 
           Positioned.fill(
             child: DecoratedBox(
@@ -129,13 +130,20 @@ class HeroBanner extends StatelessWidget {
 
                 SizedBox(height: 10.h),
 
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 8.sp,
-                    height: 1.25,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.sizeOf(context).width * 0.5,
+                  ),
+                  child: Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 8.sp,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
 
