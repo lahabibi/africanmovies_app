@@ -88,6 +88,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
   }
 
+  void _openGenresTab() {
+    setState(() {
+      _selectedGenre = null;
+      _currentIndex = 1;
+    });
+  }
+
   Future<void> _signOut() async {
     await ref.read(authControllerProvider.notifier).signOut();
   }
@@ -137,7 +144,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      HomeScreen(onGenreSelected: _openGenreTab),
+      HomeScreen(
+        onGenreSelected: _openGenreTab,
+        onGenresRequested: _openGenresTab,
+      ),
       GenresScreen(selectedGenre: _selectedGenre),
       const WatchlistScreen(),
       const MyLibraryScreen(),

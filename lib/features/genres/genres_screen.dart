@@ -60,8 +60,7 @@ class _GenresScreenState extends ConsumerState<GenresScreen> {
   void didUpdateWidget(covariant GenresScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.selectedGenre != oldWidget.selectedGenre &&
-        widget.selectedGenre != null) {
+    if (widget.selectedGenre != oldWidget.selectedGenre) {
       _selectedTabIndex = 0;
       _selectedGenre = widget.selectedGenre;
     }

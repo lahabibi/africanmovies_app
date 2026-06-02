@@ -23,8 +23,9 @@ import 'widgets/hero_banner.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<String>? onGenreSelected;
+  final VoidCallback? onGenresRequested;
 
-  const HomeScreen({super.key, this.onGenreSelected});
+  const HomeScreen({super.key, this.onGenreSelected, this.onGenresRequested});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -237,7 +238,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             if (genreItems.isNotEmpty) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),
-              const SectionHeader(title: 'Genres', actionText: 'See All »'),
+              SectionHeader(
+                title: 'Genres',
+                actionText: 'See All »',
+                onActionTap: widget.onGenresRequested,
+              ),
               SizedBox(height: 10.h),
               SizedBox(
                 height: 70.h,
