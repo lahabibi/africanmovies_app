@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../core/constants/app_spacing.dart';
+import '../../core/utils/responsive.dart';
 
 class AppScaffold extends StatelessWidget {
   final Widget child;
@@ -20,6 +20,10 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = Responsive.isTablet(context);
+    final glowSize = isTablet ? 300.0 : 260.w;
+    final bottomGlowSize = isTablet ? 280.0 : 240.w;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: appBar,
@@ -28,11 +32,11 @@ class AppScaffold extends StatelessWidget {
         children: [
           /// Top blue glow
           Positioned(
-            top: -120.h,
-            right: -80.w,
+            top: isTablet ? -130 : -120.h,
+            right: isTablet ? -90 : -80.w,
             child: Container(
-              width: 260.w,
-              height: 260.w,
+              width: glowSize,
+              height: glowSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.primary.withValues(alpha: 0.12),
@@ -42,11 +46,11 @@ class AppScaffold extends StatelessWidget {
 
           /// Bottom subtle glow
           Positioned(
-            bottom: -140.h,
-            left: -100.w,
+            bottom: isTablet ? -150 : -140.h,
+            left: isTablet ? -110 : -100.w,
             child: Container(
-              width: 240.w,
-              height: 240.w,
+              width: bottomGlowSize,
+              height: bottomGlowSize,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.primary.withValues(alpha: 0.06),
@@ -58,8 +62,8 @@ class AppScaffold extends StatelessWidget {
             child: Padding(
               padding: usePadding
                   ? EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
-              )
+                      horizontal: Responsive.horizontalPadding(context),
+                    )
                   : EdgeInsets.zero,
               child: child,
             ),

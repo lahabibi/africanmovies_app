@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 
 class MyLibraryScreen extends StatelessWidget {
   const MyLibraryScreen({super.key});
@@ -82,12 +83,14 @@ class MyLibraryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final headerHeight = Responsive.headerHeight(context);
+
     return AppScaffold(
       usePadding: true,
       child: Stack(
         children: [
           Padding(
-            padding: EdgeInsets.only(top: 48.h),
+            padding: EdgeInsets.only(top: headerHeight),
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: 10.h),
               child: Column(
@@ -158,7 +161,7 @@ class MyLibraryScreen extends StatelessWidget {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _continueWatchingMovies.length,
-                      separatorBuilder: (_, __) => SizedBox(width: 10.w),
+                      separatorBuilder: (_, _) => SizedBox(width: 10.w),
                       itemBuilder: (_, index) {
                         final movie = _continueWatchingMovies[index];
 
@@ -188,7 +191,7 @@ class MyLibraryScreen extends StatelessWidget {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _purchasedMovies.length,
-                      separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                      separatorBuilder: (_, _) => SizedBox(width: 8.w),
                       itemBuilder: (_, index) {
                         final movie = _purchasedMovies[index];
 
@@ -213,7 +216,7 @@ class MyLibraryScreen extends StatelessWidget {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _expiringSoonMovies.length,
-                      separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                      separatorBuilder: (_, _) => SizedBox(width: 8.w),
                       itemBuilder: (_, index) {
                         final movie = _expiringSoonMovies[index];
 
@@ -235,10 +238,7 @@ class MyLibraryScreen extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            child: SizedBox(
-              height: 48.h,
-              child: const HomeHeader(),
-            ),
+            child: SizedBox(height: headerHeight, child: const HomeHeader()),
           ),
         ],
       ),
@@ -258,7 +258,7 @@ class _LibraryContinueMovie {
     required this.progressText,
     required this.timeLeft,
     required this.expiryText,
-    required this.progress
+    required this.progress,
   });
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
+import '../../core/utils/responsive.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/app_text_field.dart';
@@ -14,6 +15,8 @@ class AuthScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = Responsive.horizontalPadding(context);
+
     return AppScaffold(
       usePadding: false,
       child: Stack(
@@ -84,135 +87,140 @@ class AuthScreen extends StatelessWidget {
 
           SafeArea(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(bottom: 360.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 10.h),
-
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 36.w,
-                        height: 36.w,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.05),
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                          size: 22.sp,
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 76.h),
-
-                    Center(
-                      child: Image.asset(
-                        AppAssets.logo,
-                        height: 44.h,
-                      ),
-                    ),
-
-                    SizedBox(height: 42.h),
-
-                    Center(
-                      child: Text(
-                        'Welcome to AfricanMovies',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 22.sp,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 10.h),
-
-                    Center(
-                      child: Text(
-                        'Enter your email address and we’ll send\nyou a one-time passcode.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 15.sp,
-                          height: 1.45,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 18.h),
-
-                    Text(
-                      'Email Address',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-
-                    SizedBox(height: 14.h),
-
-                    const AppTextField(
-                      hintText: 'Enter your email address',
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: Icon(
-                        Icons.email_outlined,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-
-                    SizedBox(height: 20.h),
-
-                    AppButton(
-                      text: 'Send OTP',
-                      height: 50.h,
-                      borderRadius: AppRadius.sm,
-                      backgroundColor: const Color(0xFF12B8F7),
-                      borderColor: const Color(0xFF12B8F7),
-                      fontSize: 18.sp,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OtpScreen(),
-                          ),
-                        );
-                      },
-                    ),
-
-                    SizedBox(height: 20.h),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: Responsive.formMaxWidth(context),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(bottom: 360.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.verified_user_outlined,
-                          color: AppColors.heroButton,
-                          size: 20.sp,
+                        SizedBox(height: 10.h),
+
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 36.w,
+                            height: 36.w,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(8.r),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.05),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.arrow_back_rounded,
+                              color: Colors.white,
+                              size: 22.sp,
+                            ),
+                          ),
                         ),
-                        SizedBox(width: 10.w),
-                        Flexible(
+
+                        SizedBox(height: 76.h),
+
+                        Center(
+                          child: Image.asset(AppAssets.logo, height: 44.h),
+                        ),
+
+                        SizedBox(height: 42.h),
+
+                        Center(
                           child: Text(
-                            'We’ll never share your email with anyone.',
+                            'Welcome to AfricanMovies',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 14.sp,
+                              fontSize: 22.sp,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: 10.h),
+
+                        Center(
+                          child: Text(
+                            'Enter your email address and we’ll send\nyou a one-time passcode.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15.sp,
+                              height: 1.45,
                               color: AppColors.textSecondary,
                             ),
                           ),
                         ),
+
+                        SizedBox(height: 18.h),
+
+                        Text(
+                          'Email Address',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+
+                        SizedBox(height: 14.h),
+
+                        const AppTextField(
+                          hintText: 'Enter your email address',
+                          keyboardType: TextInputType.emailAddress,
+                          prefixIcon: Icon(
+                            Icons.email_outlined,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+
+                        SizedBox(height: 20.h),
+
+                        AppButton(
+                          text: 'Send OTP',
+                          height: 50.h,
+                          borderRadius: AppRadius.sm,
+                          backgroundColor: const Color(0xFF12B8F7),
+                          borderColor: const Color(0xFF12B8F7),
+                          fontSize: 18.sp,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const OtpScreen(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        SizedBox(height: 20.h),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.verified_user_outlined,
+                              color: AppColors.heroButton,
+                              size: 20.sp,
+                            ),
+                            SizedBox(width: 10.w),
+                            Flexible(
+                              child: Text(
+                                'We’ll never share your email with anyone.',
+                                style: TextStyle(
+                                  fontSize: 14.sp,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -252,10 +260,7 @@ class _PosterTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Image.asset(
-          image,
-          fit: BoxFit.cover,
-        ),
+        child: Image.asset(image, fit: BoxFit.cover),
       ),
     );
   }

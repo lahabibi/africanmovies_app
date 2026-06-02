@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 
 class MovieHero extends StatelessWidget {
   const MovieHero({super.key});
@@ -20,17 +21,17 @@ class MovieHero extends StatelessWidget {
 
     return title;
   }
+
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding = Responsive.horizontalPadding(context);
+
     return SizedBox(
-      height: 340.h,
+      height: Responsive.detailHeroHeight(context),
       child: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset(
-              AppAssets.banner3,
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset(AppAssets.banner3, fit: BoxFit.cover),
           ),
 
           Positioned.fill(
@@ -50,8 +51,8 @@ class MovieHero extends StatelessWidget {
           ),
 
           Positioned(
-            top: 48.h,
-            left: 18.w,
+            top: MediaQuery.paddingOf(context).top + 16.h,
+            left: horizontalPadding,
             child: _CircleIconButton(
               icon: Icons.arrow_back_ios_new_rounded,
               onTap: () => Navigator.pop(context),
@@ -59,8 +60,8 @@ class MovieHero extends StatelessWidget {
           ),
 
           Positioned(
-            top: 48.h,
-            right: 18.w,
+            top: MediaQuery.paddingOf(context).top + 16.h,
+            right: horizontalPadding,
             child: _CircleIconButton(
               icon: Icons.ios_share_rounded,
               onTap: () {},
@@ -68,87 +69,98 @@ class MovieHero extends StatelessWidget {
           ),
 
           Positioned(
-            left: 16.w,
-            right: 16.w,
+            left: 0,
+            right: 0,
             bottom: 0,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _formatTitle('living sacrifice').toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 42.sp,
-                    height: .88,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 1.2,
-                  ),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: Responsive.contentMaxWidth(context),
                 ),
-
-                SizedBox(height: 12.h),
-
-                Row(
-                  children: [
-                    _MetaChip('2024'),
-                    _Dot(),
-                    _MetaChip('Drama'),
-                    _Dot(),
-                    _MetaChip('Thriller'),
-                    _Dot(),
-                    _MetaChip('2h 15m'),
-                    _Dot(),
-                    _MetaChip('16+'),
-                  ],
-                ),
-
-                SizedBox(height: 8.h),
-
-                Row(
-                  children: [
-                    Icon(
-                      Icons.star_rounded,
-                      color: const Color(0xFFFFC107),
-                      size: 16.sp,
-                    ),
-                    SizedBox(width: 6.w),
-                    Text(
-                      '8.6',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8.w,
-                        vertical: 3.h,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(4.r),
-                        border: Border.all(color: AppColors.heroButton),
-                      ),
-                      child: Text(
-                        'TOP 10',
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _formatTitle('living sacrifice').toUpperCase(),
                         style: TextStyle(
-                          fontSize: 8.sp,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.heroButton,
+                          fontSize: 42.sp,
+                          height: .88,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 1.2,
                         ),
                       ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Text(
-                      '#2 in Drama Today',
-                      style: TextStyle(
-                        fontSize: 10.sp,
-                        color: AppColors.textSecondary,
+
+                      SizedBox(height: 12.h),
+
+                      Row(
+                        children: [
+                          _MetaChip('2024'),
+                          _Dot(),
+                          _MetaChip('Drama'),
+                          _Dot(),
+                          _MetaChip('Thriller'),
+                          _Dot(),
+                          _MetaChip('2h 15m'),
+                          _Dot(),
+                          _MetaChip('16+'),
+                        ],
                       ),
-                    ),
-                  ],
+
+                      SizedBox(height: 8.h),
+
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star_rounded,
+                            color: const Color(0xFFFFC107),
+                            size: 16.sp,
+                          ),
+                          SizedBox(width: 6.w),
+                          Text(
+                            '8.6',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8.w,
+                              vertical: 3.h,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4.r),
+                              border: Border.all(color: AppColors.heroButton),
+                            ),
+                            child: Text(
+                              'TOP 10',
+                              style: TextStyle(
+                                fontSize: 8.sp,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.heroButton,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 8.w),
+                          Text(
+                            '#2 in Drama Today',
+                            style: TextStyle(
+                              fontSize: 10.sp,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -161,10 +173,7 @@ class _CircleIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
 
-  const _CircleIconButton({
-    required this.icon,
-    this.onTap,
-  });
+  const _CircleIconButton({required this.icon, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -176,15 +185,9 @@ class _CircleIconButton extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.black.withValues(alpha: 0.35),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.22),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
         ),
-        child: Icon(
-          icon,
-          color: Colors.white,
-          size: 16.sp,
-        ),
+        child: Icon(icon, color: Colors.white, size: 16.sp),
       ),
     );
   }
@@ -206,10 +209,7 @@ class _MetaChip extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 10.sp,
-          color: Colors.white,
-        ),
+        style: TextStyle(fontSize: 10.sp, color: Colors.white),
       ),
     );
   }
@@ -222,10 +222,7 @@ class _Dot extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 6.w),
       child: Text(
         '•',
-        style: TextStyle(
-          fontSize: 10.sp,
-          color: AppColors.textSecondary,
-        ),
+        style: TextStyle(fontSize: 10.sp, color: AppColors.textSecondary),
       ),
     );
   }

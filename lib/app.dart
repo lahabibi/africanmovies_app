@@ -1,6 +1,7 @@
 import 'package:africanmovies/features/main/main_screen.dart';
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/responsive.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AfricanMoviesApp extends StatelessWidget {
@@ -10,6 +11,8 @@ class AfricanMoviesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ScreenUtilInit(
       designSize: const Size(390, 844),
+      enableScaleWH: () => Responsive.shouldScaleScreenUtil,
+      enableScaleText: () => Responsive.shouldScaleScreenUtil,
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (_, child) {

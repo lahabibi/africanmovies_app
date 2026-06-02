@@ -4,17 +4,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_colors.dart';
 
-
-
 class DeviceCard extends StatelessWidget {
   final DeviceInfo device;
   final VoidCallback? onSignOut;
 
-  const DeviceCard({
-    super.key,
-    required this.device,
-    this.onSignOut,
-  });
+  const DeviceCard({super.key, required this.device, this.onSignOut});
 
   @override
   Widget build(BuildContext context) {
@@ -23,9 +17,7 @@ class DeviceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: .035),
         borderRadius: BorderRadius.circular(10.r),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: .12),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: .12)),
       ),
       child: Row(
         children: [
@@ -36,11 +28,7 @@ class DeviceCard extends StatelessWidget {
               color: AppColors.primary.withValues(alpha: .16),
               borderRadius: BorderRadius.circular(12.r),
             ),
-            child: Icon(
-              device.icon,
-              color: AppColors.primary,
-              size: 28.sp,
-            ),
+            child: Icon(device.icon, color: AppColors.primary, size: 28.sp),
           ),
 
           SizedBox(width: 16.w),
@@ -71,7 +59,7 @@ class DeviceCard extends StatelessWidget {
                           vertical: 4.h,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(.18),
+                          color: AppColors.primary.withValues(alpha: .18),
                           borderRadius: BorderRadius.circular(20.r),
                         ),
                         child: Text(
@@ -103,7 +91,7 @@ class DeviceCard extends StatelessWidget {
                   Text(
                     'Last active: ${device.lastActive}',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(.62),
+                      color: Colors.white.withValues(alpha: .62),
                       fontSize: 12.sp,
                     ),
                   ),
@@ -115,25 +103,16 @@ class DeviceCard extends StatelessWidget {
           SizedBox(width: 10.w),
 
           if (device.isCurrentDevice)
-            Icon(
-              Icons.check_rounded,
-              color: AppColors.primary,
-              size: 26.sp,
-            )
+            Icon(Icons.check_rounded, color: AppColors.primary, size: 26.sp)
           else
             OutlinedButton(
               onPressed: onSignOut,
               style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                  color: Colors.white.withValues(alpha: .24),
-                ),
+                side: BorderSide(color: Colors.white.withValues(alpha: .24)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6.r),
                 ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: 16.w,
-                  vertical: 10.h,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
               ),
               child: Text(
                 'Sign out',

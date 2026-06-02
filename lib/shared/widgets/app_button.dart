@@ -5,11 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
 import '../../core/constants/app_spacing.dart';
 
-enum AppButtonVariant {
-  primary,
-  outline,
-  danger,
-}
+enum AppButtonVariant { primary, outline, danger }
 
 class AppButton extends StatelessWidget {
   final String text;
@@ -48,24 +44,22 @@ class AppButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(
-          borderRadius ?? AppRadius.lg,
-        ),
+        borderRadius: BorderRadius.circular(borderRadius ?? AppRadius.lg),
         child: Container(
           height: height ?? AppSpacing.buttonHeight,
           width: width ?? double.infinity,
           decoration: BoxDecoration(
-            color: backgroundColor ??
+            color:
+                backgroundColor ??
                 (isPrimary
                     ? AppColors.primary
                     : isDanger
                     ? AppColors.danger
                     : Colors.transparent),
-            borderRadius: BorderRadius.circular(
-              borderRadius ?? AppRadius.lg,
-            ),
+            borderRadius: BorderRadius.circular(borderRadius ?? AppRadius.lg),
             border: Border.all(
-              color: borderColor ??
+              color:
+                  borderColor ??
                   (isPrimary
                       ? AppColors.primary
                       : isDanger
@@ -76,16 +70,18 @@ class AppButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (icon != null) ...[
-                icon!,
-                SizedBox(width: 8.w),
-              ],
-              Text(
-                text,
-                style: TextStyle(
-                  fontSize: fontSize ?? 15.sp,
-                  fontWeight: FontWeight.w700,
-                  color: textColor ?? AppColors.textPrimary,
+              if (icon != null) ...[icon!, SizedBox(width: 8.w)],
+              Flexible(
+                child: Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: fontSize ?? 15.sp,
+                    fontWeight: FontWeight.w700,
+                    color: textColor ?? AppColors.textPrimary,
+                  ),
                 ),
               ),
             ],

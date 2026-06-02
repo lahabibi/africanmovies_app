@@ -11,6 +11,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_spacing.dart';
+import '../../core/utils/responsive.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/section_header.dart';
 import 'widgets/hero_banner.dart';
@@ -26,12 +27,8 @@ class _GenreItem {
   final String label;
   final String image;
 
-  const _GenreItem({
-    required this.label,
-    required this.image,
-  });
+  const _GenreItem({required this.label, required this.image});
 }
-
 
 class _HeroMovie {
   final String image;
@@ -72,9 +69,7 @@ class _ContinueWatchingMovie {
 class _SectionMovie {
   final String image;
 
-  const _SectionMovie({
-    required this.image,
-  });
+  const _SectionMovie({required this.image});
 }
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -148,7 +143,6 @@ class _HomeScreenState extends State<HomeScreen> {
       image: AppAssets.poster1,
       timeLeft: '18 min left',
       progress: 0.72,
-
     ),
     _ContinueWatchingMovie(
       image: AppAssets.poster11,
@@ -180,12 +174,12 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   static const _genres = [
-  _GenreItem(label: 'Action', image: AppAssets.genreAction),
-  _GenreItem(label: 'Comedy', image: AppAssets.genreComedy),
-  _GenreItem(label: 'Drama', image: AppAssets.genreDrama),
-  _GenreItem(label: 'Romance', image: AppAssets.genreRomance),
-  _GenreItem(label: 'Thriller', image: AppAssets.genreThriller),
-  _GenreItem(label: 'Crime', image: AppAssets.genreCrime),
+    _GenreItem(label: 'Action', image: AppAssets.genreAction),
+    _GenreItem(label: 'Comedy', image: AppAssets.genreComedy),
+    _GenreItem(label: 'Drama', image: AppAssets.genreDrama),
+    _GenreItem(label: 'Romance', image: AppAssets.genreRomance),
+    _GenreItem(label: 'Thriller', image: AppAssets.genreThriller),
+    _GenreItem(label: 'Crime', image: AppAssets.genreCrime),
     _GenreItem(label: 'Horror', image: AppAssets.genreHorror),
   ];
 
@@ -215,19 +209,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final headerHeight = Responsive.headerHeight(context);
+
     return AppScaffold(
       usePadding: true,
       child: Stack(
         children: [
           Padding(
-            padding: EdgeInsets.only(top: 48.h),
+            padding: EdgeInsets.only(top: headerHeight),
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: 20.h),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    height: 210.h,
+                    height: Responsive.heroHeight(context),
                     child: PageView.builder(
                       controller: _heroController,
                       itemCount: _heroMovies.length,
@@ -286,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _continueWatchingMovies.length,
-                      separatorBuilder: (_, __) => SizedBox(width: 5.w),
+                      separatorBuilder: (_, _) => SizedBox(width: 5.w),
                       itemBuilder: (_, index) {
                         final movie = _continueWatchingMovies[index];
 
@@ -307,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const MovieListScreen()
+                          builder: (_) => const MovieListScreen(),
                         ),
                       );
                     },
@@ -324,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _posters.length,
-                      separatorBuilder: (_, __) => SizedBox(width: 5.w),
+                      separatorBuilder: (_, _) => SizedBox(width: 5.w),
                       itemBuilder: (_, index) {
                         final movie = _posters[index];
                         return SectionMovieCard(
@@ -344,17 +340,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   SizedBox(height: AppSpacing.sectionXxsGap),
 
-                  const SectionHeader(
-                    title: 'Genres',
-                    actionText: 'See All »',
-                  ),
+                  const SectionHeader(title: 'Genres', actionText: 'See All »'),
                   SizedBox(height: 10.h),
                   SizedBox(
                     height: 82.h,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _genres.length,
-                      separatorBuilder: (_, __) => SizedBox(width: 18.w),
+                      separatorBuilder: (_, _) => SizedBox(width: 18.w),
                       itemBuilder: (_, index) {
                         final genre = _genres[index];
 
@@ -369,10 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   SizedBox(height: AppSpacing.sectionXxsGap),
 
-                  const SectionHeader(
-                    title: 'comedy',
-                    actionText: 'See All »',
-                  ),
+                  const SectionHeader(title: 'comedy', actionText: 'See All »'),
 
                   SizedBox(height: 10.h),
 
@@ -381,11 +371,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _posters2.length,
-                      separatorBuilder: (_, __) => SizedBox(width: 5.w),
+                      separatorBuilder: (_, _) => SizedBox(width: 5.w),
                       itemBuilder: (_, index) {
-                        return SectionMovieCard(
-                          image: _posters2[index],
-                        );
+                        return SectionMovieCard(image: _posters2[index]);
                       },
                     ),
                   ),
@@ -398,10 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
             top: 0,
             left: 0,
             right: 0,
-            child: SizedBox(
-              height: 48.h,
-              child: const HomeHeader(),
-            ),
+            child: SizedBox(height: headerHeight, child: const HomeHeader()),
           ),
         ],
       ),

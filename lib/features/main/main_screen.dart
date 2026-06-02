@@ -1,6 +1,5 @@
 import 'package:africanmovies/features/genres/genres_screen.dart';
 import 'package:africanmovies/features/library/my_library_screen.dart';
-import 'package:africanmovies/features/profile/non_auth_profile_screen.dart';
 import 'package:africanmovies/features/profile/profile_screen.dart';
 import 'package:africanmovies/features/watchlist/watchlist_screen.dart';
 import 'package:flutter/material.dart';
@@ -28,11 +27,6 @@ class _MainScreenState extends State<MainScreen> {
         setState(() => _currentIndex = index);
       },
     ),
-    // NonAuthProfileScreen(
-    //     onTabSelected: (index) {
-    //       setState(() => _currentIndex = index);
-    //     },
-    // )
   ];
 
   @override
@@ -45,21 +39,6 @@ class _MainScreenState extends State<MainScreen> {
           setState(() => _currentIndex = index);
         },
       ),
-    );
-  }
-}
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-
-  const _PlaceholderScreen({
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(title),
     );
   }
 }

@@ -5,10 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
 import '../../../shared/widgets/app_button.dart';
 
-enum HeroBannerType {
-  image,
-  video,
-}
+enum HeroBannerType { image, video }
 
 class HeroBanner extends StatelessWidget {
   final HeroBannerType type;
@@ -53,7 +50,6 @@ class HeroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 210.h,
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -62,12 +58,7 @@ class HeroBanner extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned.fill(
-            child: Image.asset(
-              image,
-              fit: BoxFit.cover,
-            ),
-          ),
+          Positioned.fill(child: Image.asset(image, fit: BoxFit.cover)),
 
           Positioned.fill(
             child: DecoratedBox(
@@ -176,10 +167,7 @@ class HeroBanner extends StatelessWidget {
                       borderRadius: AppRadius.xs,
                       borderColor: AppColors.heroButton,
                       backgroundColor: AppColors.heroButton,
-                      icon: Icon(
-                        Icons.play_arrow_rounded,
-                        size: 16.sp,
-                      ),
+                      icon: Icon(Icons.play_arrow_rounded, size: 16.sp),
                     ),
                     SizedBox(width: 12.w),
                     AppButton(
@@ -252,9 +240,7 @@ class _AgeBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4.r),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Text(
         text,

@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 
 class WatchlistScreen extends StatelessWidget {
   const WatchlistScreen({super.key});
@@ -87,12 +88,15 @@ class WatchlistScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final headerHeight = Responsive.headerHeight(context);
+    final gridSpacing = Responsive.gridSpacing(context);
+
     return AppScaffold(
       usePadding: true,
       child: Stack(
         children: [
           Padding(
-            padding: EdgeInsets.only(top: 48.h),
+            padding: EdgeInsets.only(top: headerHeight),
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: 20.h),
               child: Column(
@@ -137,12 +141,13 @@ class WatchlistScreen extends StatelessWidget {
                     itemCount: _watchlistMovies.length,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                    SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 8.w,
-                      mainAxisSpacing: 0.h,
-                      childAspectRatio: 0.43,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: Responsive.posterGridColumns(context),
+                      crossAxisSpacing: gridSpacing,
+                      mainAxisSpacing: Responsive.isTablet(context) ? 14 : 0.h,
+                      childAspectRatio: Responsive.posterGridAspectRatio(
+                        context,
+                      ),
                     ),
                     itemBuilder: (_, index) {
                       final movie = _watchlistMovies[index];
@@ -169,10 +174,7 @@ class WatchlistScreen extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            child: SizedBox(
-              height: 48.h,
-              child: const HomeHeader(),
-            ),
+            child: SizedBox(height: headerHeight, child: const HomeHeader()),
           ),
         ],
       ),

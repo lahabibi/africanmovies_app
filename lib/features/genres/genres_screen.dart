@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_assets.dart';
+import '../../core/utils/responsive.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../home/widgets/home_header.dart';
@@ -232,7 +233,6 @@ class _GenresScreenState extends State<GenresScreen> {
     ),
   ];
 
-
   static const _languageSections = [
     _LanguageSectionData(
       language: 'English',
@@ -394,12 +394,14 @@ class _GenresScreenState extends State<GenresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final headerHeight = Responsive.headerHeight(context);
+
     return AppScaffold(
       usePadding: true,
       child: Stack(
         children: [
           Padding(
-            padding: EdgeInsets.only(top: 48.h),
+            padding: EdgeInsets.only(top: headerHeight),
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: 20.h),
               child: Column(
@@ -423,9 +425,7 @@ class _GenresScreenState extends State<GenresScreen> {
                       },
                     )
                   else
-                    const _LanguagesTabContent(
-                      sections: _languageSections,
-                    ),
+                    const _LanguagesTabContent(sections: _languageSections),
                 ],
               ),
             ),
@@ -435,7 +435,7 @@ class _GenresScreenState extends State<GenresScreen> {
             top: 0,
             left: 0,
             right: 0,
-            child: SizedBox(height: 48.h, child: const HomeHeader()),
+            child: SizedBox(height: headerHeight, child: const HomeHeader()),
           ),
         ],
       ),
@@ -458,6 +458,8 @@ class _GenresTabContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gridSpacing = Responsive.gridSpacing(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -466,7 +468,7 @@ class _GenresTabContent extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: genres.length,
-            separatorBuilder: (_, __) => SizedBox(width: 14.w),
+            separatorBuilder: (_, _) => SizedBox(width: 14.w),
             itemBuilder: (_, index) {
               final genre = genres[index];
 
@@ -488,39 +490,42 @@ class _GenresTabContent extends StatelessWidget {
         ),
         SizedBox(height: 8.h),
 
-        if(movies.isEmpty)
+        if (movies.isEmpty)
           Center(
             child: Padding(
               padding: EdgeInsets.only(top: 40.h),
               child: EmptyState(
                 title: 'No movies yet',
-                subtitle: 'There are no movies available in this genre right now.',
+                subtitle:
+                    'There are no movies available in this genre right now.',
               ),
             ),
           )
         else
-        GridView.builder(
-          itemCount: movies.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 8.w,
-            mainAxisSpacing: 10.h,
-            childAspectRatio: 0.62,
-          ),
-          itemBuilder: (_, index) {
-            final movie = movies[index];
+          GridView.builder(
+            itemCount: movies.length,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: Responsive.posterGridColumns(context),
+              crossAxisSpacing: gridSpacing,
+              mainAxisSpacing: Responsive.isTablet(context) ? 14 : 10.h,
+              childAspectRatio: Responsive.compactPosterGridAspectRatio(
+                context,
+              ),
+            ),
+            itemBuilder: (_, index) {
+              final movie = movies[index];
 
-            return GenreMovieGridCard(
-              image: movie.image,
-              year: movie.year,
-              duration: movie.duration,
-              ageRating: movie.ageRating,
-              onTap: () {},
-            );
-          },
-        ),
+              return GenreMovieGridCard(
+                image: movie.image,
+                year: movie.year,
+                duration: movie.duration,
+                ageRating: movie.ageRating,
+                onTap: () {},
+              );
+            },
+          ),
       ],
     );
   }
@@ -529,9 +534,7 @@ class _GenresTabContent extends StatelessWidget {
 class _LanguagesTabContent extends StatelessWidget {
   final List<_LanguageSectionData> sections;
 
-  const _LanguagesTabContent({
-    required this.sections,
-  });
+  const _LanguagesTabContent({required this.sections});
 
   @override
   Widget build(BuildContext context) {

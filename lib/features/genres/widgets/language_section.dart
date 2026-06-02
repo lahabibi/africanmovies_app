@@ -21,16 +21,10 @@ class LanguageSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(
-          title: language,
-          actionText: 'See All »',
-        ),
+        SectionHeader(title: language, actionText: 'See All »'),
         Text(
           '$movieCount Movies',
-          style: TextStyle(
-            fontSize: 10.sp,
-            color: const Color(0xFF9CA3AF),
-          ),
+          style: TextStyle(fontSize: 10.sp, color: const Color(0xFF9CA3AF)),
         ),
         SizedBox(height: 8.h),
         SizedBox(
@@ -38,7 +32,7 @@ class LanguageSection extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: movies.length,
-            separatorBuilder: (_, __) => SizedBox(width: 6.w),
+            separatorBuilder: (_, _) => SizedBox(width: 6.w),
             itemBuilder: (_, index) {
               final movie = movies[index];
 

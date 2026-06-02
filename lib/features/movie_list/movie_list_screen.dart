@@ -1,5 +1,4 @@
 import 'package:africanmovies/features/favorite/widgets/favorite_movie_card.dart';
-import 'package:africanmovies/features/home/widgets/home_header.dart';
 import 'package:africanmovies/shared/widgets/app_scaffold.dart';
 import 'package:africanmovies/shared/widgets/app_screen_header.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 
 class MovieListScreen extends StatelessWidget {
   const MovieListScreen({super.key});
@@ -88,12 +88,15 @@ class MovieListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final headerHeight = Responsive.headerHeight(context);
+    final gridSpacing = Responsive.gridSpacing(context);
+
     return AppScaffold(
       usePadding: true,
       child: Stack(
         children: [
           Padding(
-            padding: EdgeInsets.only(top: 48.h),
+            padding: EdgeInsets.only(top: headerHeight),
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: 20.h),
               child: Column(
@@ -138,12 +141,13 @@ class MovieListScreen extends StatelessWidget {
                     itemCount: _movieList.length,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                    SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 8.w,
-                      mainAxisSpacing: 0.h,
-                      childAspectRatio: 0.43,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: Responsive.posterGridColumns(context),
+                      crossAxisSpacing: gridSpacing,
+                      mainAxisSpacing: Responsive.isTablet(context) ? 14 : 0.h,
+                      childAspectRatio: Responsive.posterGridAspectRatio(
+                        context,
+                      ),
                     ),
                     itemBuilder: (_, index) {
                       final movie = _movieList[index];
@@ -173,7 +177,7 @@ class MovieListScreen extends StatelessWidget {
             left: 0,
             right: 0,
             child: SizedBox(
-              height: 48.h,
+              height: headerHeight,
               child: const AppScreenHeader(),
             ),
           ),
