@@ -12,7 +12,7 @@ class MovieRepository {
   }) : _apiClient = apiClient,
        _cacheStore = cacheStore;
 
-  static const _homeDataCacheKey = 'movies.home_data';
+  static const _homeDataCacheKey = 'movies.home_data.v2';
   static const _homeDataMaxAge = Duration(minutes: 10);
 
   final ApiClient _apiClient;

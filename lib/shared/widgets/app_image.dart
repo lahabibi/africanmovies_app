@@ -32,6 +32,7 @@ class AppImage extends StatelessWidget {
       source,
       fit: fit,
       alignment: alignment,
+      color: color,
       errorBuilder: (_, _, _) => const _ImageFallback(),
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;

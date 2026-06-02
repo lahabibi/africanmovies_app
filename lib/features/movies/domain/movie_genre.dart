@@ -3,6 +3,7 @@ class MovieGenre {
   final String name;
   final String description;
   final String pictureUrl;
+  final String iconUrl;
   final int positionOnDashboard;
 
   const MovieGenre({
@@ -10,6 +11,7 @@ class MovieGenre {
     required this.name,
     required this.description,
     required this.pictureUrl,
+    required this.iconUrl,
     required this.positionOnDashboard,
   });
 
@@ -19,6 +21,7 @@ class MovieGenre {
       name: json['name']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       pictureUrl: json['genrePictureURL']?.toString() ?? '',
+      iconUrl: json['genreIconURL']?.toString() ?? '',
       positionOnDashboard:
           int.tryParse(json['positionOnDashboard']?.toString() ?? '') ?? 0,
     );
@@ -30,6 +33,7 @@ class MovieGenre {
       'name': name,
       'description': description,
       'genrePictureURL': pictureUrl,
+      'genreIconURL': iconUrl,
       'positionOnDashboard': positionOnDashboard,
     };
   }

@@ -105,7 +105,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildHomeContent(HomeData data) {
     final heroMovies = data.bannerMovies;
     final trendingMovies = data.trendingMovies;
-    final genreLabels = _genreLabels(data);
+    final genreItems = _genreItems(data);
+    final genreLabels = genreItems.map((genre) => genre.label).toList();
     final featuredGenre = _featuredGenre(genreLabels);
     final featuredGenreMovies = featuredGenre == null
         ? <Movie>[]
@@ -222,7 +223,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             _MovieRow(movies: trendingMovies, onMovieTap: _openMovieDetails),
 
-            if (genreLabels.isNotEmpty) ...[
+            if (genreItems.isNotEmpty) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),
               const SectionHeader(title: 'Genres', actionText: 'See All »'),
               SizedBox(height: 10.h),
@@ -230,14 +231,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 height: 82.h,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: genreLabels.length,
+                  itemCount: genreItems.length,
                   separatorBuilder: (_, _) => SizedBox(width: 18.w),
                   itemBuilder: (_, index) {
-                    final genre = genreLabels[index];
+                    final genre = genreItems[index];
 
                     return GenreCircleItem(
-                      label: genre,
-                      image: _genreIconFor(genre),
+                      label: genre.label,
+                      image: genre.image,
                       onTap: () {},
                     );
                   },
@@ -260,10 +261,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  List<String> _genreLabels(HomeData data) {
+  List<_HomeGenreItem> _genreItems(HomeData data) {
     final backendGenres = data.genres
-        .map((genre) => genre.name)
-        .where((name) => name.isNotEmpty)
+        .where((genre) => genre.name.isNotEmpty)
+        .map(
+          (genre) => _HomeGenreItem(
+            label: genre.name,
+            image: genre.iconUrl.isNotEmpty ? genre.iconUrl : AppAssets.genre,
+          ),
+        )
         .toList();
 
     if (backendGenres.isNotEmpty) return backendGenres;
@@ -272,6 +278,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .map((movie) => movie.genre)
         .where((genre) => genre.isNotEmpty)
         .toSet()
+        .map((genre) => _HomeGenreItem(label: genre, image: AppAssets.genre))
         .toList();
   }
 
@@ -284,19 +291,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return genres.first;
   }
+}
 
-  String _genreIconFor(String genre) {
-    return switch (genre.toLowerCase()) {
-      'action' => AppAssets.genreAction,
-      'comedy' => AppAssets.genreComedy,
-      'drama' => AppAssets.genreDrama,
-      'romance' => AppAssets.genreRomance,
-      'thriller' => AppAssets.genreThriller,
-      'crime' => AppAssets.genreCrime,
-      'horror' => AppAssets.genreHorror,
-      _ => AppAssets.genreDrama,
-    };
-  }
+class _HomeGenreItem {
+  final String label;
+  final String image;
+
+  const _HomeGenreItem({required this.label, required this.image});
 }
 
 class _MovieRow extends StatelessWidget {

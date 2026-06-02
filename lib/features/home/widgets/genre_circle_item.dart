@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/app_image.dart';
 
 class GenreCircleItem extends StatelessWidget {
   final String label;
@@ -36,10 +37,10 @@ class GenreCircleItem extends StatelessWidget {
                   width: 1.1,
                 ),
               ),
-              child: Image.asset(
-                image,
-                color: AppColors.primary,
+              child: AppImage(
+                source: image,
                 fit: BoxFit.contain,
+                color: AppColors.primary,
               ),
             ),
             SizedBox(height: 8.h),
