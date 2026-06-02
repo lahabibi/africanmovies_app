@@ -12,6 +12,7 @@ import '../../core/providers/app_providers.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_scaffold.dart';
+import 'application/auth_controller.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   final String email;
@@ -103,7 +104,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     try {
       final session = await ref
-          .read(authRepositoryProvider)
+          .read(authControllerProvider.notifier)
           .verifyOtp(email: widget.email, otp: otp);
 
       if (!mounted) return;

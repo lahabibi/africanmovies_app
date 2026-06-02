@@ -59,8 +59,14 @@ class AuthRepository {
     }
   }
 
-  Future<void> signOut() {
-    return _tokenStore.clear();
+  Future<void> signOut() async {
+    try {
+      await _apiClient.post<Map<String, dynamic>>('/auth/logout');
+    } on DioException {
+      // Local sign-out should still succeed if the server session is gone.
+    } finally {
+      await _tokenStore.clear();
+    }
   }
 
   Future<Map<String, String>> _devicePayload() async {

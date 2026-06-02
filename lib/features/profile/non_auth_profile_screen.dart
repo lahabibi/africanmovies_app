@@ -48,27 +48,27 @@ class NonAuthProfileScreen extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        SizedBox(height: 22.h),
-                        Container(
-                          width: 118.w,
-                          height: 118.w,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.primary.withValues(alpha: .08),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: .35),
-                                blurRadius: 40,
-                                spreadRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.person_outline_rounded,
-                            color: AppColors.primary,
-                            size: 78.sp,
-                          ),
-                        ),
+                        //SizedBox(height: 22.h),
+                        // Container(
+                        //   width: 118.w,
+                        //   height: 118.w,
+                        //   decoration: BoxDecoration(
+                        //     shape: BoxShape.circle,
+                        //     color: AppColors.primary.withValues(alpha: .08),
+                        //     boxShadow: [
+                        //       BoxShadow(
+                        //         color: AppColors.primary.withValues(alpha: .35),
+                        //         blurRadius: 40,
+                        //         spreadRadius: 4,
+                        //       ),
+                        //     ],
+                        //   ),
+                        //   child: Icon(
+                        //     Icons.person_outline_rounded,
+                        //     color: AppColors.primary,
+                        //     size: 78.sp,
+                        //   ),
+                        // ),
 
                         SizedBox(height: 28.h),
 

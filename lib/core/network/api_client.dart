@@ -1,31 +1,38 @@
 import 'package:dio/dio.dart';
 
 import '../config/app_config.dart';
+import '../storage/device_identity_store.dart';
 import '../storage/secure_token_store.dart';
 
 class ApiClient {
-  ApiClient({required SecureTokenStore tokenStore, Dio? dio})
-    : _tokenStore = tokenStore,
-      dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              baseUrl: AppConfig.apiBaseUrl,
-              connectTimeout: AppConfig.requestTimeout,
-              receiveTimeout: AppConfig.requestTimeout,
-              sendTimeout: AppConfig.requestTimeout,
-              headers: const {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-              },
-            ),
-          ) {
+  ApiClient({
+    required SecureTokenStore tokenStore,
+    required DeviceIdentityStore deviceIdentityStore,
+    Dio? dio,
+  }) : _tokenStore = tokenStore,
+       _deviceIdentityStore = deviceIdentityStore,
+       dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: AppConfig.apiBaseUrl,
+               connectTimeout: AppConfig.requestTimeout,
+               receiveTimeout: AppConfig.requestTimeout,
+               sendTimeout: AppConfig.requestTimeout,
+               headers: const {
+                 'Accept': 'application/json',
+                 'Content-Type': 'application/json',
+               },
+             ),
+           ) {
     this.dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await _tokenStore.readAccessToken();
           if (token != null && token.isNotEmpty) {
             options.headers['x-auth-token'] = token;
+            options.headers['x-device-id'] = await _deviceIdentityStore
+                .readOrCreateDeviceId();
           }
 
           handler.next(options);
@@ -35,6 +42,7 @@ class ApiClient {
   }
 
   final SecureTokenStore _tokenStore;
+  final DeviceIdentityStore _deviceIdentityStore;
   final Dio dio;
 
   Future<Response<T>> get<T>(

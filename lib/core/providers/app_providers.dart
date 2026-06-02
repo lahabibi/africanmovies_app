@@ -6,6 +6,7 @@ import '../storage/device_identity_store.dart';
 import '../storage/json_cache_store.dart';
 import '../storage/secure_token_store.dart';
 import '../../features/auth/data/auth_repository.dart';
+import '../../features/auth/data/auth_session_store.dart';
 
 final apiBaseUrlProvider = Provider<String>((ref) {
   return AppConfig.apiBaseUrl;
@@ -24,7 +25,10 @@ final deviceIdentityStoreProvider = Provider<DeviceIdentityStore>((ref) {
 });
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient(tokenStore: ref.watch(secureTokenStoreProvider));
+  return ApiClient(
+    tokenStore: ref.watch(secureTokenStoreProvider),
+    deviceIdentityStore: ref.watch(deviceIdentityStoreProvider),
+  );
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -33,4 +37,8 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
     tokenStore: ref.watch(secureTokenStoreProvider),
     deviceIdentityStore: ref.watch(deviceIdentityStoreProvider),
   );
+});
+
+final authSessionStoreProvider = Provider<AuthSessionStore>((ref) {
+  return AuthSessionStore(cacheStore: ref.watch(jsonCacheStoreProvider));
 });

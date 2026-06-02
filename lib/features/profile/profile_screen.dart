@@ -14,11 +14,20 @@ import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
 import '../../core/utils/responsive.dart';
+import '../auth/domain/auth_session.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
+  final AuthUser user;
   final ValueChanged<int>? onTabSelected;
-  const ProfileScreen({super.key, this.onTabSelected});
+  final Future<void> Function()? onSignOut;
+
+  const ProfileScreen({
+    super.key,
+    required this.user,
+    this.onTabSelected,
+    this.onSignOut,
+  });
 
   static const _menuItems = [
     _ProfileMenuItem(
@@ -58,6 +67,67 @@ class ProfileScreen extends StatelessWidget {
       subtitle: 'App version 1.0.0',
     ),
   ];
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            side: const BorderSide(color: AppColors.cardBorder),
+          ),
+          title: Text(
+            'Sign out?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            'You’ll need to verify your email again to access your library and devices.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14.sp,
+              height: 1.4,
+            ),
+          ),
+          actionsPadding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 14.h),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                'Sign Out',
+                style: TextStyle(
+                  color: AppColors.danger,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSignOut == true) {
+      await onSignOut?.call();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +200,9 @@ class ProfileScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Summaya Ibrahim',
+                                  user.username.isEmpty
+                                      ? 'User'
+                                      : user.username,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -141,7 +213,7 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                                 SizedBox(height: 6.h),
                                 Text(
-                                  'summaya.ibrahim@gmail.com',
+                                  user.email,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -318,32 +390,38 @@ class ProfileScreen extends StatelessWidget {
 
                       SizedBox(height: 16.h),
 
-                      Container(
-                        width: double.infinity,
-                        height: 50.h,
-                        decoration: BoxDecoration(
-                          color: AppColors.card.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: AppColors.cardBorder),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.logout_rounded,
-                              color: AppColors.danger,
-                              size: 22.sp,
-                            ),
-                            SizedBox(width: 8.w),
-                            Text(
-                              'Sign Out',
-                              style: TextStyle(
-                                fontSize: 15.sp,
-                                fontWeight: FontWeight.w700,
+                      InkWell(
+                        onTap: onSignOut == null
+                            ? null
+                            : () => _confirmSignOut(context),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        child: Container(
+                          width: double.infinity,
+                          height: 50.h,
+                          decoration: BoxDecoration(
+                            color: AppColors.card.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(color: AppColors.cardBorder),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.logout_rounded,
                                 color: AppColors.danger,
+                                size: 22.sp,
                               ),
-                            ),
-                          ],
+                              SizedBox(width: 8.w),
+                              Text(
+                                'Sign Out',
+                                style: TextStyle(
+                                  fontSize: 15.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.danger,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
