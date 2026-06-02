@@ -1,90 +1,26 @@
 import 'package:africanmovies/features/favorite/widgets/favorite_movie_card.dart';
+import 'package:africanmovies/features/movie_details/movie_details_screen.dart';
+import 'package:africanmovies/features/movies/domain/movie.dart';
 import 'package:africanmovies/shared/widgets/app_scaffold.dart';
 import 'package:africanmovies/shared/widgets/app_screen_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/responsive.dart';
 
 class MovieListScreen extends StatelessWidget {
-  const MovieListScreen({super.key});
+  final String title;
+  final List<Movie> movies;
 
-  static const _movieList = [
-    _Movies(
-      image: AppAssets.poster1,
-      title: 'Living Sacrifice',
-      genres: 'Drama, Thriller',
-      duration: '2h 15m',
-      year: '2024',
-      ageRating: '16+',
-    ),
-    _Movies(
-      image: AppAssets.poster2,
-      title: 'Brotherhood: A Son\'s Affair',
-      genres: 'Drama',
-      duration: '2h 10m',
-      year: '2023',
-      ageRating: '16+',
-    ),
-    _Movies(
-      image: AppAssets.poster3,
-      title: 'Chief Daddy',
-      genres: 'Comedy, Drama',
-      duration: '1h 53m',
-      year: '2021',
-      ageRating: '13+',
-    ),
-    _Movies(
-      image: AppAssets.poster19,
-      title: 'Ibu And Kezia',
-      genres: 'Comedy',
-      duration: '2h 15m',
-      year: '2024',
-      ageRating: '16+',
-    ),
-    _Movies(
-      image: AppAssets.poster20,
-      title: 'Cherikoko\'s Return',
-      genres: 'Drama',
-      duration: '2h 10m',
-      year: '2023',
-      ageRating: '16+',
-    ),
-    _Movies(
-      image: AppAssets.poster18,
-      title: 'Osufua In London',
-      genres: 'Comedy, Drama',
-      duration: '1h 53m',
-      year: '2021',
-      ageRating: '13+',
-    ),
-    _Movies(
-      image: AppAssets.poster4,
-      title: 'Her Life Journey',
-      genres: 'Drama, Romance',
-      duration: '2h 20m',
-      year: '2024',
-      ageRating: '16+',
-    ),
-    _Movies(
-      image: AppAssets.poster5,
-      title: 'The Bridge',
-      genres: 'Crime, Thriller',
-      duration: '2h 05m',
-      year: '2023',
-      ageRating: '16+',
-    ),
-    _Movies(
-      image: AppAssets.poster6,
-      title: 'A Western Love Story',
-      genres: 'Romance, Drama',
-      duration: '2h 18m',
-      year: '2023',
-      ageRating: '13+',
-    ),
-  ];
+  const MovieListScreen({super.key, required this.title, required this.movies});
+
+  void _openMovieDetails(BuildContext context, Movie movie) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MovieDetailsScreen(movie: movie)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +41,9 @@ class MovieListScreen extends StatelessWidget {
                   SizedBox(height: 4.h),
 
                   Text(
-                    'Movies Type',
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w800,
@@ -116,7 +54,7 @@ class MovieListScreen extends StatelessWidget {
                   SizedBox(height: 4.h),
 
                   Text(
-                    '${_movieList.length} Titles',
+                    '${movies.length} Titles',
                     style: TextStyle(
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
@@ -124,21 +62,10 @@ class MovieListScreen extends StatelessWidget {
                     ),
                   ),
 
-                  SizedBox(height: 4.h),
-
-                  Text(
-                    'The list of movie type will show here.',
-                    style: TextStyle(
-                      fontSize: 11.sp,
-                      height: 1.45,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-
                   SizedBox(height: 10.h),
 
                   GridView.builder(
-                    itemCount: _movieList.length,
+                    itemCount: movies.length,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -150,20 +77,18 @@ class MovieListScreen extends StatelessWidget {
                       ),
                     ),
                     itemBuilder: (_, index) {
-                      final movie = _movieList[index];
+                      final movie = movies[index];
 
                       return FavoriteMovieCard(
-                        image: movie.image,
+                        image: movie.displayPosterUrl,
                         title: movie.title,
-                        genres: movie.genres,
-                        duration: movie.duration,
-                        year: movie.year,
-                        ageRating: movie.ageRating,
-                        onTap: () {},
+                        genres: movie.genre,
+                        duration: movie.durationLabel,
+                        year: movie.yearLabel,
+                        ageRating: movie.ageRatingLabel,
+                        onTap: () => _openMovieDetails(context, movie),
                         onPlayTap: () {},
-                        onMoreTap: () {
-                          //print("from other screen");
-                        },
+                        onMoreTap: () {},
                       );
                     },
                   ),
@@ -185,22 +110,4 @@ class MovieListScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Movies {
-  final String image;
-  final String title;
-  final String genres;
-  final String duration;
-  final String year;
-  final String ageRating;
-
-  const _Movies({
-    required this.image,
-    required this.title,
-    required this.genres,
-    required this.duration,
-    required this.year,
-    required this.ageRating,
-  });
 }

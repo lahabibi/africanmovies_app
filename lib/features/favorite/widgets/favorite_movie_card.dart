@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
 import '../../../shared/widgets/app_context_menu.dart';
+import '../../../shared/widgets/app_image.dart';
 
 class FavoriteMovieCard extends StatelessWidget {
   final String image;
@@ -47,7 +48,7 @@ class FavoriteMovieCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Positioned.fill(child: Image.asset(image, fit: BoxFit.cover)),
+                  Positioned.fill(child: AppImage(source: image)),
 
                   Positioned.fill(
                     child: DecoratedBox(

@@ -4,6 +4,7 @@ import 'package:africanmovies/features/movie_details/widgets/movie_hero.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_info_card.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_purchase_button.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_small_action.dart';
+import 'package:africanmovies/features/movie_list/movie_list_screen.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +30,18 @@ class MovieDetailsScreen extends ConsumerWidget {
       MaterialPageRoute(builder: (_) => const AuthScreen()),
     );
     return false;
+  }
+
+  void _openMovieList(BuildContext context, List<Movie> movies) {
+    if (movies.isEmpty) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            MovieListScreen(title: 'More Like This', movies: movies),
+      ),
+    );
   }
 
   @override
@@ -111,9 +124,12 @@ class MovieDetailsScreen extends ConsumerWidget {
                       if (relatedMovies.isNotEmpty) ...[
                         SizedBox(height: 14.h),
 
-                        const SectionHeader(
+                        SectionHeader(
                           title: 'More Like This',
                           actionText: 'See All »',
+                          onActionTap: () {
+                            _openMovieList(context, relatedMovies);
+                          },
                         ),
 
                         SizedBox(height: 12.h),

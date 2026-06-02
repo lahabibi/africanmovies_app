@@ -70,6 +70,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _openMovieList(String title, List<Movie> movies) {
+    if (movies.isEmpty) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MovieListScreen(title: title, movies: movies),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final headerHeight = Responsive.headerHeight(context);
@@ -179,9 +190,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             if (continueWatchingMovies.isNotEmpty) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),
-              const SectionHeader(
+              SectionHeader(
                 title: 'Continue Watching',
                 actionText: 'See All »',
+                onActionTap: () {
+                  _openMovieList('Continue Watching', continueWatchingMovies);
+                },
               ),
               SizedBox(height: 8.h),
               SizedBox(
@@ -205,17 +219,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             SizedBox(height: AppSpacing.sectionXxsGap),
 
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MovieListScreen()),
-                );
+            SectionHeader(
+              title: 'New Releases',
+              actionText: 'See All »',
+              onActionTap: () {
+                _openMovieList('New Releases', latestMovies);
               },
-              child: const SectionHeader(
-                title: 'New Releases',
-                actionText: 'See All »',
-              ),
             ),
 
             SizedBox(height: 10.h),
@@ -249,7 +258,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             for (final section in genreMovieSections) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),
-              SectionHeader(title: section.genre, actionText: 'See All »'),
+              SectionHeader(
+                title: section.genre,
+                actionText: 'See All »',
+                onActionTap: () {
+                  _openMovieList(section.genre, section.movies);
+                },
+              ),
               SizedBox(height: 10.h),
               _MovieRow(movies: section.movies, onMovieTap: _openMovieDetails),
             ],
