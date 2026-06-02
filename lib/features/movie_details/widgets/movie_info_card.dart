@@ -3,12 +3,21 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
+import '../../movies/domain/movie.dart';
 
 class MovieInfoCard extends StatelessWidget {
-  const MovieInfoCard({super.key});
+  final Movie movie;
+
+  const MovieInfoCard({super.key, required this.movie});
 
   @override
   Widget build(BuildContext context) {
+    final cast = movie.actors
+        .map((actor) => actor.trim())
+        .where((actor) => actor.isNotEmpty)
+        .take(3)
+        .join(',\n');
+
     return Container(
       padding: EdgeInsets.symmetric(vertical: 14.h),
       decoration: BoxDecoration(
@@ -19,29 +28,34 @@ class MovieInfoCard extends StatelessWidget {
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: const [
+          children: [
             Expanded(
-              child: _InfoItem(title: 'Genre', value: 'Drama,\nThriller'),
+              child: _InfoItem(title: 'Genre', value: _value(movie.genre)),
             ),
-            _VerticalDivider(),
+            const _VerticalDivider(),
+            Expanded(
+              child: _InfoItem(title: 'Cast', value: _value(cast)),
+            ),
+            const _VerticalDivider(),
+            Expanded(
+              child: _InfoItem(title: 'Audio', value: _value(movie.language)),
+            ),
+            const _VerticalDivider(),
             Expanded(
               child: _InfoItem(
-                title: 'Cast',
-                value: 'Funke Akindele,\nKanayo O. Kanayo',
+                title: 'Country',
+                value: _value(movie.countryName),
               ),
-            ),
-            _VerticalDivider(),
-            Expanded(
-              child: _InfoItem(title: 'Audio', value: 'English,\nYoruba'),
-            ),
-            _VerticalDivider(),
-            Expanded(
-              child: _InfoItem(title: 'Country', value: 'Nigeria'),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _value(String value) {
+    final trimmedValue = value.trim();
+    return trimmedValue.isEmpty ? 'N/A' : trimmedValue;
   }
 }
 

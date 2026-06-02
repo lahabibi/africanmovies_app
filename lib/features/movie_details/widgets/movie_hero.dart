@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../shared/widgets/app_image.dart';
+import '../../movies/domain/movie.dart';
 
 class MovieHero extends StatelessWidget {
-  const MovieHero({super.key});
+  final Movie movie;
+
+  const MovieHero({super.key, required this.movie});
 
   String _formatTitle(String title) {
-    final words = title.trim().split(' ');
+    final words = title.trim().split(RegExp(r'\s+'));
 
     if (words.length == 2) {
       return '${words[0]}\n${words[1]}';
@@ -25,13 +28,20 @@ class MovieHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = Responsive.horizontalPadding(context);
+    final metaItems = [
+      movie.yearLabel,
+      movie.genre,
+      movie.releaseType,
+      movie.durationLabel,
+      movie.ageRatingLabel,
+    ].where((item) => item.trim().isNotEmpty && item != 'N/A').toList();
 
     return SizedBox(
       height: Responsive.detailHeroHeight(context),
       child: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset(AppAssets.banner3, fit: BoxFit.cover),
+            child: AppImage(source: movie.displayBannerUrl, fit: BoxFit.cover),
           ),
 
           Positioned.fill(
@@ -84,29 +94,25 @@ class MovieHero extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _formatTitle('living sacrifice').toUpperCase(),
+                        _formatTitle(movie.title).toUpperCase(),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 42.sp,
                           height: .88,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
-                          letterSpacing: 1.2,
+                          letterSpacing: 0,
                         ),
                       ),
 
                       SizedBox(height: 12.h),
 
-                      Row(
+                      Wrap(
+                        spacing: 6.w,
+                        runSpacing: 6.h,
                         children: [
-                          _MetaChip('2024'),
-                          _Dot(),
-                          _MetaChip('Drama'),
-                          _Dot(),
-                          _MetaChip('Thriller'),
-                          _Dot(),
-                          _MetaChip('2h 15m'),
-                          _Dot(),
-                          _MetaChip('16+'),
+                          for (final item in metaItems) _MetaChip(item),
                         ],
                       ),
 
@@ -115,46 +121,29 @@ class MovieHero extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.star_rounded,
-                            color: const Color(0xFFFFC107),
+                            movie.isFree
+                                ? Icons.play_circle_fill_rounded
+                                : Icons.lock_rounded,
+                            color: AppColors.heroButton,
                             size: 16.sp,
                           ),
                           SizedBox(width: 6.w),
-                          Text(
-                            '8.6',
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(width: 12.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8.w,
-                              vertical: 3.h,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4.r),
-                              border: Border.all(color: AppColors.heroButton),
-                            ),
+                          Expanded(
                             child: Text(
-                              'TOP 10',
+                              movie.isFree ? 'Free title' : movie.priceLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 8.sp,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.heroButton,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
                               ),
                             ),
                           ),
-                          SizedBox(width: 8.w),
-                          Text(
-                            '#2 in Drama Today',
-                            style: TextStyle(
-                              fontSize: 10.sp,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
+                          if (movie.status.trim().isNotEmpty) ...[
+                            SizedBox(width: 8.w),
+                            _StatusPill(movie.status),
+                          ],
                         ],
                       ),
                     ],
@@ -202,6 +191,9 @@ class _MetaChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      constraints: BoxConstraints(
+        maxWidth: Responsive.isTablet(context) ? 160 : 116.w,
+      ),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(4.r),
@@ -209,20 +201,36 @@ class _MetaChip extends StatelessWidget {
       ),
       child: Text(
         text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: 10.sp, color: Colors.white),
       ),
     );
   }
 }
 
-class _Dot extends StatelessWidget {
+class _StatusPill extends StatelessWidget {
+  final String text;
+
+  const _StatusPill(this.text);
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 6.w),
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4.r),
+        border: Border.all(color: AppColors.heroButton),
+      ),
       child: Text(
-        '•',
-        style: TextStyle(fontSize: 10.sp, color: AppColors.textSecondary),
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 8.sp,
+          fontWeight: FontWeight.w800,
+          color: AppColors.heroButton,
+        ),
       ),
     );
   }

@@ -66,7 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _openMovieDetails(Movie movie) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const MovieDetailsScreen()),
+      MaterialPageRoute(builder: (_) => MovieDetailsScreen(movie: movie)),
     );
   }
 

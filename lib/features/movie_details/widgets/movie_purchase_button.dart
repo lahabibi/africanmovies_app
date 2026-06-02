@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_radius.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_radius.dart';
 
 class MoviePurchaseButton extends StatelessWidget {
-  final String price;
+  final IconData icon;
+  final String title;
+  final String subtitle;
   final VoidCallback? onTap;
 
   const MoviePurchaseButton({
     super.key,
-    required this.price,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
     this.onTap,
   });
 
@@ -27,11 +31,7 @@ class MoviePurchaseButton extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.lock_outline_rounded,
-              color: Colors.white,
-              size: 18.sp,
-            ),
+            Icon(icon, color: Colors.white, size: 18.sp),
             SizedBox(width: 4.w),
             Expanded(
               child: Column(
@@ -39,7 +39,9 @@ class MoviePurchaseButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Watch for $price',
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 11.sp,
@@ -48,7 +50,9 @@ class MoviePurchaseButton extends StatelessWidget {
                   ),
                   SizedBox(height: 3.h),
                   Text(
-                    'Add to your library',
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w500,
