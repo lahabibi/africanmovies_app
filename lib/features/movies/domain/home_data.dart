@@ -49,8 +49,10 @@ class HomeData {
   }
 
   List<Movie> moviesByGenre(String genre) {
+    final normalizedGenre = genre.trim().toLowerCase();
+
     return movies
-        .where((movie) => movie.genre.toLowerCase() == genre.toLowerCase())
+        .where((movie) => movie.genre.trim().toLowerCase() == normalizedGenre)
         .toList();
   }
 

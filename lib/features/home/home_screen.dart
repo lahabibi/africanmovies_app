@@ -106,11 +106,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final heroMovies = data.bannerMovies;
     final latestMovies = data.latestUploadedMovies;
     final genreItems = _genreItems(data);
-    final genreLabels = genreItems.map((genre) => genre.label).toList();
-    final featuredGenre = _featuredGenre(genreLabels);
-    final featuredGenreMovies = featuredGenre == null
-        ? <Movie>[]
-        : data.moviesByGenre(featuredGenre).take(12).toList();
+    final genreMovieSections = _genreMovieSections(data, genreItems);
     final continueWatchingMovies = data.continueWatchingMovies;
 
     if (data.movies.isEmpty) return const _HomeEmptyView();
@@ -223,12 +219,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             _MovieRow(movies: latestMovies, onMovieTap: _openMovieDetails),
 
+            SizedBox(height: 10.h),
+
             if (genreItems.isNotEmpty) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),
               const SectionHeader(title: 'Genres', actionText: 'See All »'),
               SizedBox(height: 10.h),
               SizedBox(
-                height: 82.h,
+                height: 70.h,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: genreItems.length,
@@ -246,14 +244,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
 
-            if (featuredGenre != null && featuredGenreMovies.isNotEmpty) ...[
+            for (final section in genreMovieSections) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),
-              SectionHeader(title: featuredGenre, actionText: 'See All »'),
+              SectionHeader(title: section.genre, actionText: 'See All »'),
               SizedBox(height: 10.h),
-              _MovieRow(
-                movies: featuredGenreMovies,
-                onMovieTap: _openMovieDetails,
-              ),
+              _MovieRow(movies: section.movies, onMovieTap: _openMovieDetails),
             ],
           ],
         ),
@@ -282,14 +277,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .toList();
   }
 
-  String? _featuredGenre(List<String> genres) {
-    if (genres.isEmpty) return null;
+  List<_HomeGenreMovieSection> _genreMovieSections(
+    HomeData data,
+    List<_HomeGenreItem> genreItems,
+  ) {
+    final sections = <_HomeGenreMovieSection>[];
+    final seenGenres = <String>{};
 
-    for (final genre in genres) {
-      if (genre.toLowerCase() == 'comedy') return genre;
+    void addSection(String genre) {
+      final normalizedGenre = genre.trim().toLowerCase();
+      if (normalizedGenre.isEmpty || seenGenres.contains(normalizedGenre)) {
+        return;
+      }
+
+      seenGenres.add(normalizedGenre);
+      final movies = data.moviesByGenre(genre);
+      if (movies.isEmpty) return;
+
+      sections.add(_HomeGenreMovieSection(genre: genre, movies: movies));
     }
 
-    return genres.first;
+    for (final genre in genreItems) {
+      addSection(genre.label);
+    }
+
+    for (final movie in data.movies) {
+      addSection(movie.genre);
+    }
+
+    return sections;
   }
 }
 
@@ -298,6 +314,13 @@ class _HomeGenreItem {
   final String image;
 
   const _HomeGenreItem({required this.label, required this.image});
+}
+
+class _HomeGenreMovieSection {
+  final String genre;
+  final List<Movie> movies;
+
+  const _HomeGenreMovieSection({required this.genre, required this.movies});
 }
 
 class _MovieRow extends StatelessWidget {
