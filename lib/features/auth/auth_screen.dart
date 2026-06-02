@@ -13,7 +13,9 @@ import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/app_text_field.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  final VoidCallback? onAuthenticated;
+
+  const AuthScreen({super.key, this.onAuthenticated});
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -45,10 +47,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
       if (!mounted) return;
 
-      Navigator.push(
+      final verified = await Navigator.push<bool>(
         context,
         MaterialPageRoute(builder: (_) => OtpScreen(email: email)),
       );
+
+      if (!mounted) return;
+
+      if (verified == true) {
+        final onAuthenticated = widget.onAuthenticated;
+        Navigator.pop(context, true);
+        onAuthenticated?.call();
+      }
     } catch (error) {
       if (!mounted) return;
       _showMessage(error.toString());

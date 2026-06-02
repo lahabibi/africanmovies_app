@@ -110,7 +110,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       if (!mounted) return;
 
       _showMessage('Signed in as ${session.user.email}');
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
       _showMessage(error.toString());

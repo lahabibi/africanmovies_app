@@ -1,5 +1,8 @@
+import 'package:africanmovies/features/auth/auth_screen.dart';
+import 'package:africanmovies/features/favorite/favorite_screen.dart';
 import 'package:africanmovies/features/genres/genres_screen.dart';
 import 'package:africanmovies/features/library/my_library_screen.dart';
+import 'package:africanmovies/features/profile/devices_screen.dart';
 import 'package:africanmovies/features/profile/profile_screen.dart';
 import 'package:africanmovies/features/profile/non_auth_profile_screen.dart';
 import 'package:africanmovies/features/watchlist/watchlist_screen.dart';
@@ -22,8 +25,59 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = 0;
 
+  bool get _hasSession {
+    return ref.read(authControllerProvider).asData?.value != null;
+  }
+
   void _selectTab(int index) {
     setState(() => _currentIndex = index);
+  }
+
+  void _handleTabTap(int index) {
+    if (_isProtectedTab(index) && !_hasSession) {
+      _openAuth(onAuthenticated: () => _selectTab(index));
+      return;
+    }
+
+    _selectTab(index);
+  }
+
+  bool _isProtectedTab(int index) {
+    return index == 2 || index == 3;
+  }
+
+  void _openAuth({VoidCallback? onAuthenticated}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AuthScreen(onAuthenticated: onAuthenticated),
+      ),
+    );
+  }
+
+  void _openProtectedTab(int index) {
+    if (_hasSession) {
+      _selectTab(index);
+      return;
+    }
+
+    _openAuth(onAuthenticated: () => _selectTab(index));
+  }
+
+  void _openProtectedRoute(WidgetBuilder builder) {
+    if (_hasSession) {
+      Navigator.push(context, MaterialPageRoute(builder: builder));
+      return;
+    }
+
+    _openAuth(
+      onAuthenticated: () {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.push(context, MaterialPageRoute(builder: builder));
+        });
+      },
+    );
   }
 
   Future<void> _signOut() async {
@@ -36,7 +90,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return authState.when(
       data: (session) {
         if (session == null) {
-          return NonAuthProfileScreen(onTabSelected: _selectTab);
+          return NonAuthProfileScreen(
+            onTabSelected: _selectTab,
+            onLoginRequested: () => _openAuth(),
+            onLibraryRequested: () => _openProtectedTab(3),
+            onFavoritesRequested: () {
+              _openProtectedRoute((_) => const FavoriteScreen());
+            },
+            onWatchlistRequested: () => _openProtectedTab(2),
+            onDevicesRequested: () {
+              _openProtectedRoute((_) => const LoggedInDevicesScreen());
+            },
+          );
         }
 
         return ProfileScreen(
@@ -45,7 +110,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           onSignOut: _signOut,
         );
       },
-      error: (_, _) => NonAuthProfileScreen(onTabSelected: _selectTab),
+      error: (_, _) => NonAuthProfileScreen(
+        onTabSelected: _selectTab,
+        onLoginRequested: () => _openAuth(),
+        onLibraryRequested: () => _openProtectedTab(3),
+        onFavoritesRequested: () {
+          _openProtectedRoute((_) => const FavoriteScreen());
+        },
+        onWatchlistRequested: () => _openProtectedTab(2),
+        onDevicesRequested: () {
+          _openProtectedRoute((_) => const LoggedInDevicesScreen());
+        },
+      ),
       loading: () => const _ProfileLoadingScreen(),
     );
   }
@@ -64,7 +140,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       body: screens[_currentIndex],
       bottomNavigationBar: BottomNavBar(
         currentIndex: _currentIndex,
-        onTap: _selectTab,
+        onTap: _handleTabTap,
       ),
     );
   }

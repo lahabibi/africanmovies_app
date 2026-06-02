@@ -1,8 +1,11 @@
+import 'package:africanmovies/features/auth/auth_screen.dart';
+import 'package:africanmovies/features/auth/application/auth_controller.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_hero.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_info_card.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_purchase_button.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_small_action.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_assets.dart';
@@ -11,7 +14,7 @@ import '../../core/utils/responsive.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/section_movie_card.dart';
 
-class MovieDetailsScreen extends StatelessWidget {
+class MovieDetailsScreen extends ConsumerWidget {
   const MovieDetailsScreen({super.key});
 
   static const _relatedMovies = [
@@ -22,8 +25,19 @@ class MovieDetailsScreen extends StatelessWidget {
     AppAssets.poster10,
   ];
 
+  bool _requireAuth(BuildContext context, WidgetRef ref) {
+    final hasSession = ref.read(authControllerProvider).asData?.value != null;
+    if (hasSession) return true;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AuthScreen()),
+    );
+    return false;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final horizontalPadding = Responsive.horizontalPadding(context);
 
     return Scaffold(
@@ -53,7 +67,9 @@ class MovieDetailsScreen extends StatelessWidget {
                             flex: 3,
                             child: MoviePurchaseButton(
                               price: '\$0.99',
-                              onTap: () {},
+                              onTap: () {
+                                _requireAuth(context, ref);
+                              },
                             ),
                           ),
                           SizedBox(width: 6.w),
@@ -62,14 +78,20 @@ class MovieDetailsScreen extends StatelessWidget {
                             label: 'Trailer',
                           ),
                           SizedBox(width: 6.w),
-                          const MovieSmallAction(
+                          MovieSmallAction(
                             icon: Icons.bookmark_add_outlined,
                             label: 'watchlist',
+                            onTap: () {
+                              _requireAuth(context, ref);
+                            },
                           ),
                           SizedBox(width: 6.w),
-                          const MovieSmallAction(
+                          MovieSmallAction(
                             icon: Icons.favorite_border_rounded,
                             label: 'Favorite',
+                            onTap: () {
+                              _requireAuth(context, ref);
+                            },
                           ),
                         ],
                       ),

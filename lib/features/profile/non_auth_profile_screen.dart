@@ -9,8 +9,21 @@ import '../../core/constants/app_colors.dart';
 
 class NonAuthProfileScreen extends StatelessWidget {
   final ValueChanged<int>? onTabSelected;
+  final VoidCallback? onLoginRequested;
+  final VoidCallback? onLibraryRequested;
+  final VoidCallback? onFavoritesRequested;
+  final VoidCallback? onWatchlistRequested;
+  final VoidCallback? onDevicesRequested;
 
-  const NonAuthProfileScreen({super.key, this.onTabSelected});
+  const NonAuthProfileScreen({
+    super.key,
+    this.onTabSelected,
+    this.onLoginRequested,
+    this.onLibraryRequested,
+    this.onFavoritesRequested,
+    this.onWatchlistRequested,
+    this.onDevicesRequested,
+  });
 
   void _goToLogin(BuildContext context) {
     Navigator.push(
@@ -79,14 +92,18 @@ class NonAuthProfileScreen extends StatelessWidget {
                               icon: Icons.video_library_outlined,
                               title: 'My Library',
                               subtitle: 'Access all your\npurchased movies',
-                              onTap: () => _goToLogin(context),
+                              onTap:
+                                  onLibraryRequested ??
+                                  () => _goToLogin(context),
                             ),
                             SizedBox(width: 14.w),
                             AuthFeatureCard(
                               icon: Icons.favorite_border_rounded,
                               title: 'Favorites',
                               subtitle: 'Save and access your\nfavorite movies',
-                              onTap: () => _goToLogin(context),
+                              onTap:
+                                  onFavoritesRequested ??
+                                  () => _goToLogin(context),
                             ),
                           ],
                         ),
@@ -99,14 +116,18 @@ class NonAuthProfileScreen extends StatelessWidget {
                               icon: Icons.bookmark_border_rounded,
                               title: 'Watchlist',
                               subtitle: 'Save movies you want\nto watch later',
-                              onTap: () => _goToLogin(context),
+                              onTap:
+                                  onWatchlistRequested ??
+                                  () => _goToLogin(context),
                             ),
                             SizedBox(width: 14.w),
                             AuthFeatureCard(
                               icon: Icons.devices_rounded,
                               title: 'Devices',
                               subtitle: 'Watch on your phone,\ntablet, or TV',
-                              onTap: () => _goToLogin(context),
+                              onTap:
+                                  onDevicesRequested ??
+                                  () => _goToLogin(context),
                             ),
                           ],
                         ),
@@ -117,7 +138,8 @@ class NonAuthProfileScreen extends StatelessWidget {
                           width: double.infinity,
                           height: 58.h,
                           child: ElevatedButton.icon(
-                            onPressed: () => _goToLogin(context),
+                            onPressed:
+                                onLoginRequested ?? () => _goToLogin(context),
                             icon: Icon(
                               Icons.email_outlined,
                               color: Colors.white,
