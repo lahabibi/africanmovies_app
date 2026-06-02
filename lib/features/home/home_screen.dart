@@ -22,7 +22,9 @@ import '../../shared/widgets/section_header.dart';
 import 'widgets/hero_banner.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  final ValueChanged<String>? onGenreSelected;
+
+  const HomeScreen({super.key, this.onGenreSelected});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -249,7 +251,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     return GenreCircleItem(
                       label: genre.label,
                       image: genre.image,
-                      onTap: () {},
+                      onTap: () => widget.onGenreSelected?.call(genre.label),
                     );
                   },
                 ),

@@ -21,30 +21,34 @@ class GenreFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: title,
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+        Expanded(
+          child: RichText(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: title,
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-              TextSpan(
-                text: '  •  $movieCount Movies',
-                style: TextStyle(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
+                TextSpan(
+                  text: '  •  $movieCount Movies',
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
 
-        const Spacer(),
+        SizedBox(width: 8.w),
 
         GestureDetector(
           onTap: onSortTap,

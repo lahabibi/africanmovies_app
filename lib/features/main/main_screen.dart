@@ -24,6 +24,7 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   int _currentIndex = 0;
+  String? _selectedGenre;
 
   bool get _hasSession {
     return ref.read(authControllerProvider).asData?.value != null;
@@ -80,6 +81,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
+  void _openGenreTab(String genre) {
+    setState(() {
+      _selectedGenre = genre;
+      _currentIndex = 1;
+    });
+  }
+
   Future<void> _signOut() async {
     await ref.read(authControllerProvider.notifier).signOut();
   }
@@ -129,8 +137,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      const HomeScreen(),
-      const GenresScreen(),
+      HomeScreen(onGenreSelected: _openGenreTab),
+      GenresScreen(selectedGenre: _selectedGenre),
       const WatchlistScreen(),
       const MyLibraryScreen(),
       _profileScreen(),

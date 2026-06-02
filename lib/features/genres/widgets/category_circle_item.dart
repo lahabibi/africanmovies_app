@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/app_image.dart';
 
 class CategoryCircleItem extends StatelessWidget {
   final String label;
@@ -43,12 +44,10 @@ class CategoryCircleItem extends StatelessWidget {
                   width: 1.2,
                 ),
               ),
-              child: Image.asset(
-                image,
+              child: AppImage(
+                source: image,
                 fit: BoxFit.contain,
-                color: selected
-                    ? AppColors.primary
-                    : Colors.white,
+                color: selected ? AppColors.primary : Colors.white,
               ),
             ),
 
@@ -61,9 +60,7 @@ class CategoryCircleItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11.sp,
                 fontWeight: FontWeight.w500,
-                color: selected
-                    ? AppColors.primary
-                    : AppColors.textPrimary,
+                color: selected ? AppColors.primary : AppColors.textPrimary,
               ),
             ),
           ],
