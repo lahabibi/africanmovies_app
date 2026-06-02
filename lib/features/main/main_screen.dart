@@ -1,6 +1,6 @@
 import 'package:africanmovies/features/genres/genres_screen.dart';
 import 'package:africanmovies/features/library/my_library_screen.dart';
-import 'package:africanmovies/features/profile/profile_screen.dart';
+import 'package:africanmovies/features/profile/non_auth_profile_screen.dart';
 import 'package:africanmovies/features/watchlist/watchlist_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -22,11 +22,12 @@ class _MainScreenState extends State<MainScreen> {
     const GenresScreen(),
     const WatchlistScreen(),
     const MyLibraryScreen(),
-    ProfileScreen(
-      onTabSelected: (index) {
-        setState(() => _currentIndex = index);
-      },
-    ),
+    // ProfileScreen(
+    //   onTabSelected: (index) {
+    //     setState(() => _currentIndex = index);
+    //   },
+    // ),
+    const NonAuthProfileScreen(),
   ];
 
   @override

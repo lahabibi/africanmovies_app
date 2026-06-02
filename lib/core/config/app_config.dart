@@ -1,12 +1,24 @@
+import 'package:flutter/foundation.dart';
+
 class AppConfig {
   AppConfig._();
 
-  static const defaultDevApiBaseUrl = 'http://localhost:3200/api';
+  static const localNetworkDevApiBaseUrl = 'http://172.20.10.8:3200/api';
+  static const androidEmulatorDevApiBaseUrl = 'http://10.0.2.2:3200/api';
 
-  static const apiBaseUrl = String.fromEnvironment(
+  static const _apiBaseUrlOverride = String.fromEnvironment(
     'AFRICAN_MOVIES_API_BASE_URL',
-    defaultValue: defaultDevApiBaseUrl,
+    defaultValue: '',
   );
+
+  static String get apiBaseUrl {
+    if (_apiBaseUrlOverride.isNotEmpty) return _apiBaseUrlOverride;
+
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => androidEmulatorDevApiBaseUrl,
+      _ => localNetworkDevApiBaseUrl,
+    };
+  }
 
   static const requestTimeout = Duration(seconds: 20);
 }

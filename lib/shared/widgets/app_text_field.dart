@@ -13,6 +13,9 @@ class AppTextField extends StatelessWidget {
   final bool obscureText;
   final int maxLines;
   final ValueChanged<String>? onChanged;
+  final TextInputAction? textInputAction;
+  final Iterable<String>? autofillHints;
+  final bool enabled;
 
   const AppTextField({
     super.key,
@@ -24,6 +27,9 @@ class AppTextField extends StatelessWidget {
     this.obscureText = false,
     this.maxLines = 1,
     this.onChanged,
+    this.textInputAction,
+    this.autofillHints,
+    this.enabled = true,
   });
 
   @override
@@ -31,9 +37,12 @@ class AppTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      autofillHints: autofillHints,
       obscureText: obscureText,
       maxLines: maxLines,
       onChanged: onChanged,
+      enabled: enabled,
       style: TextStyle(
         fontSize: 15.sp,
         fontWeight: FontWeight.w500,
@@ -49,10 +58,7 @@ class AppTextField extends StatelessWidget {
         filled: true,
         fillColor: AppColors.card,
 
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 18.w,
-          vertical: 18.h,
-        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 18.h),
 
         hintStyle: TextStyle(
           fontSize: 14.sp,
@@ -62,24 +68,17 @@ class AppTextField extends StatelessWidget {
 
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          borderSide: const BorderSide(
-            color: AppColors.cardBorder,
-          ),
+          borderSide: const BorderSide(color: AppColors.cardBorder),
         ),
 
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          borderSide: const BorderSide(
-            color: AppColors.cardBorder,
-          ),
+          borderSide: const BorderSide(color: AppColors.cardBorder),
         ),
 
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          borderSide: const BorderSide(
-            color: AppColors.primary,
-            width: 1.2,
-          ),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
         ),
       ),
     );

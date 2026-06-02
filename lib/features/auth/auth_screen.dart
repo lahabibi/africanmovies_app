@@ -1,17 +1,74 @@
 import 'package:africanmovies/features/auth/otp_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
+import '../../core/providers/app_providers.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/app_text_field.dart';
 
-class AuthScreen extends StatelessWidget {
+class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
+
+  @override
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends ConsumerState<AuthScreen> {
+  final _emailController = TextEditingController();
+
+  bool _isSending = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendOtp() async {
+    final email = _emailController.text.trim();
+
+    if (!_isValidEmail(email)) {
+      _showMessage('Enter a valid email address');
+      return;
+    }
+
+    setState(() => _isSending = true);
+
+    try {
+      await ref.read(authRepositoryProvider).requestOtp(email);
+
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => OtpScreen(email: email)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
+  }
+
+  bool _isValidEmail(String value) {
+    final emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return emailPattern.hasMatch(value);
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,9 +225,14 @@ class AuthScreen extends StatelessWidget {
 
                         SizedBox(height: 14.h),
 
-                        const AppTextField(
+                        AppTextField(
                           hintText: 'Enter your email address',
+                          controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.email],
+                          enabled: !_isSending,
+                          onChanged: (_) => setState(() {}),
                           prefixIcon: Icon(
                             Icons.email_outlined,
                             color: AppColors.textSecondary,
@@ -180,20 +242,23 @@ class AuthScreen extends StatelessWidget {
                         SizedBox(height: 20.h),
 
                         AppButton(
-                          text: 'Send OTP',
+                          text: _isSending ? 'Sending...' : 'Send OTP',
                           height: 50.h,
                           borderRadius: AppRadius.sm,
                           backgroundColor: const Color(0xFF12B8F7),
                           borderColor: const Color(0xFF12B8F7),
                           fontSize: 18.sp,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const OtpScreen(),
-                              ),
-                            );
-                          },
+                          icon: _isSending
+                              ? SizedBox(
+                                  width: 18.w,
+                                  height: 18.w,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : null,
+                          onPressed: _isSending ? null : _sendOtp,
                         ),
 
                         SizedBox(height: 20.h),
