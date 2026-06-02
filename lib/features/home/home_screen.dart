@@ -104,7 +104,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildHomeContent(HomeData data) {
     final heroMovies = data.bannerMovies;
-    final trendingMovies = data.trendingMovies;
+    final latestMovies = data.latestUploadedMovies;
     final genreItems = _genreItems(data);
     final genreLabels = genreItems.map((genre) => genre.label).toList();
     final featuredGenre = _featuredGenre(genreLabels);
@@ -221,7 +221,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             SizedBox(height: 10.h),
 
-            _MovieRow(movies: trendingMovies, onMovieTap: _openMovieDetails),
+            _MovieRow(movies: latestMovies, onMovieTap: _openMovieDetails),
 
             if (genreItems.isNotEmpty) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),

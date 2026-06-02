@@ -34,13 +34,18 @@ class HomeData {
         .toList();
   }
 
-  List<Movie> get trendingMovies {
-    final trending = movies
-        .where((movie) => movie.releaseType.toLowerCase().contains('trending'))
-        .toList();
-    if (trending.isNotEmpty) return trending.take(12).toList();
+  List<Movie> get latestUploadedMovies {
+    final sortedMovies = [...movies];
+    sortedMovies.sort((left, right) {
+      final leftDate =
+          left.uploadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final rightDate =
+          right.uploadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
 
-    return movies.take(12).toList();
+      return rightDate.compareTo(leftDate);
+    });
+
+    return sortedMovies.take(15).toList();
   }
 
   List<Movie> moviesByGenre(String genre) {

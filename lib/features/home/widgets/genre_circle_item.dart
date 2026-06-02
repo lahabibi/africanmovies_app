@@ -22,13 +22,13 @@ class GenreCircleItem extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 42.w,
+        width: 44.w,
         child: Column(
           children: [
             Container(
               width: 46.w,
               height: 46.w,
-              padding: EdgeInsets.all(10.w),
+              padding: EdgeInsets.all(8.w),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.transparent,
@@ -43,7 +43,7 @@ class GenreCircleItem extends StatelessWidget {
                 color: AppColors.primary,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 5.h),
             Text(
               label,
               maxLines: 1,
