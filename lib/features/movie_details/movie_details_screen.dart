@@ -7,6 +7,7 @@ import 'package:africanmovies/features/movie_details/widgets/movie_small_action.
 import 'package:africanmovies/features/movie_list/movie_list_screen.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
+import 'package:africanmovies/features/player/trailer_player_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -40,6 +41,25 @@ class MovieDetailsScreen extends ConsumerWidget {
       MaterialPageRoute(
         builder: (_) =>
             MovieListScreen(title: 'More Like This', movies: movies),
+      ),
+    );
+  }
+
+  void _openTrailer(BuildContext context) {
+    final trailerUrl = movie.trailerUrl.trim();
+
+    if (trailerUrl.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Trailer unavailable')));
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            TrailerPlayerScreen(title: movie.title, videoUrl: trailerUrl),
       ),
     );
   }
@@ -90,9 +110,10 @@ class MovieDetailsScreen extends ConsumerWidget {
                             ),
                           ),
                           SizedBox(width: 6.w),
-                          const MovieSmallAction(
+                          MovieSmallAction(
                             icon: Icons.smart_display_outlined,
                             label: 'Trailer',
+                            onTap: () => _openTrailer(context),
                           ),
                           SizedBox(width: 6.w),
                           MovieSmallAction(

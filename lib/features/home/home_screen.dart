@@ -8,6 +8,7 @@ import 'package:africanmovies/features/movie_list/movie_list_screen.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/movies/domain/home_data.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
+import 'package:africanmovies/features/player/trailer_player_screen.dart';
 import 'package:africanmovies/shared/widgets/section_movie_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -80,6 +81,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => MovieListScreen(title: title, movies: movies),
+      ),
+    );
+  }
+
+  void _openTrailer(Movie movie) {
+    final trailerUrl = movie.trailerUrl.trim();
+
+    if (trailerUrl.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Trailer unavailable')));
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            TrailerPlayerScreen(title: movie.title, videoUrl: trailerUrl),
       ),
     );
   }
@@ -162,7 +182,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ageRating: movie.ageRatingLabel,
                       onTap: () => _openMovieDetails(movie),
                       onWatchNowTap: () {},
-                      onTrailerTap: () {},
+                      onTrailerTap: () => _openTrailer(movie),
                     );
                   },
                 ),

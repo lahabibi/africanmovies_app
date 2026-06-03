@@ -78,4 +78,6 @@ class AppAssets {
   static const genre = 'assets/icons/ic_genre.png';
 
   static const search = 'assets/icons/ic_search.png';
+
+  static const screen = 'assets/icons/ic_screen.png';
 }
