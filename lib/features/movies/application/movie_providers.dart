@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../notifications/application/notification_providers.dart';
 import '../data/movie_repository.dart';
 import '../domain/home_data.dart';
 import '../domain/movie.dart';
@@ -16,7 +17,12 @@ final movieRepositoryProvider = Provider<MovieRepository>((ref) {
 final homeDataProvider = FutureProvider<HomeData>((ref) async {
   ref.watch(authControllerProvider);
 
-  return ref.watch(movieRepositoryProvider).fetchHomeData();
+  final homeData = await ref.watch(movieRepositoryProvider).fetchHomeData();
+  await ref
+      .read(notificationsControllerProvider.notifier)
+      .syncNewReleases(homeData.latestUploadedMovies);
+
+  return homeData;
 });
 
 final movieSearchProvider = FutureProvider.autoDispose
