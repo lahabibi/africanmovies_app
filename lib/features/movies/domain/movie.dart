@@ -17,6 +17,7 @@ class Movie {
   final String status;
   final String? releaseYear;
   final String releaseType;
+  final double? score;
   final String posterUrl;
   final String bannerUrl;
   final String trailerUrl;
@@ -43,6 +44,7 @@ class Movie {
     required this.status,
     this.releaseYear,
     required this.releaseType,
+    this.score,
     required this.posterUrl,
     required this.bannerUrl,
     required this.trailerUrl,
@@ -71,6 +73,12 @@ class Movie {
       status: json['status']?.toString() ?? '',
       releaseYear: json['releaseYear']?.toString(),
       releaseType: json['releaseType']?.toString() ?? 'New Release',
+      score: _readOptionalDouble(
+        json['score'] ??
+            json['movieScore'] ??
+            json['averageRating'] ??
+            json['ratingScore'],
+      ),
       posterUrl: json['moviePictureURL']?.toString() ?? '',
       bannerUrl: json['movieBannerPictureURL']?.toString() ?? '',
       trailerUrl: json['movieTrailerURL']?.toString() ?? '',
@@ -119,6 +127,13 @@ class Movie {
     return '\$${price.toStringAsFixed(decimals)}';
   }
 
+  String? get scoreLabel {
+    final value = score;
+    if (value == null || value <= 0) return null;
+
+    return value.toStringAsFixed(value % 1 == 0 ? 0 : 1);
+  }
+
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
@@ -139,6 +154,7 @@ class Movie {
       'status': status,
       'releaseYear': releaseYear,
       'releaseType': releaseType,
+      'score': score,
       'moviePictureURL': posterUrl,
       'movieBannerPictureURL': bannerUrl,
       'movieTrailerURL': trailerUrl,
@@ -151,6 +167,12 @@ class Movie {
   static double _readDouble(Object? value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double? _readOptionalDouble(Object? value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 
   static int _readInt(Object? value) {

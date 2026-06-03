@@ -6,6 +6,7 @@ import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../auth/auth_screen.dart';
+import '../../search/search_screen.dart';
 
 class HomeHeader extends ConsumerWidget {
   const HomeHeader({super.key});
@@ -20,9 +21,15 @@ class HomeHeader extends ConsumerWidget {
       children: [
         Image.asset(AppAssets.logo, height: 32.h),
         const Spacer(),
-        const _HeaderIcon(
+        _HeaderIcon(
           key: Key('home_header_search'),
           icon: AppAssets.search,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SearchScreen()),
+            );
+          },
         ),
         SizedBox(width: 12.w),
         const _HeaderIcon(

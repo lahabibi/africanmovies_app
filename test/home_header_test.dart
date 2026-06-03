@@ -3,6 +3,7 @@ import 'package:africanmovies/features/auth/application/auth_controller.dart';
 import 'package:africanmovies/features/auth/auth_screen.dart';
 import 'package:africanmovies/features/auth/domain/auth_session.dart';
 import 'package:africanmovies/features/home/widgets/home_header.dart';
+import 'package:africanmovies/features/search/search_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -38,6 +39,15 @@ void main() {
     expect(find.byKey(const Key('home_header_notification')), findsOneWidget);
     expect(find.byKey(const Key('home_header_profile')), findsOneWidget);
     expect(find.byKey(const Key('home_header_profile_icon')), findsNothing);
+  });
+
+  testWidgets('opens search screen from search icon', (tester) async {
+    await _pumpHeader(tester, session: null);
+
+    await tester.tap(find.byKey(const Key('home_header_search')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchScreen), findsOneWidget);
   });
 }
 
