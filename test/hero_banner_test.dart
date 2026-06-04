@@ -8,7 +8,6 @@ void main() {
   Future<void> pumpHeroBanner(
     WidgetTester tester, {
     required String title,
-    VoidCallback? onTap,
     VoidCallback? onWatchNowTap,
     VoidCallback? onTrailerTap,
   }) async {
@@ -30,7 +29,6 @@ void main() {
                 releaseType: 'New Release',
                 duration: '1h 15 min',
                 ageRating: '16+',
-                onTap: onTap,
                 onWatchNowTap: onWatchNowTap,
                 onTrailerTap: onTrailerTap,
               ),
@@ -41,20 +39,18 @@ void main() {
     );
   }
 
-  testWidgets('hero buttons do not trigger the banner tap', (tester) async {
+  testWidgets('hero action buttons trigger their callbacks', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    var bannerTapCount = 0;
     var watchTapCount = 0;
     var trailerTapCount = 0;
 
     await pumpHeroBanner(
       tester,
       title: 'Lion Heart',
-      onTap: () => bannerTapCount++,
       onWatchNowTap: () => watchTapCount++,
       onTrailerTap: () => trailerTapCount++,
     );
@@ -62,16 +58,10 @@ void main() {
     await tester.tap(find.text('Watch Now'));
     await tester.pump();
     expect(watchTapCount, 1);
-    expect(bannerTapCount, 0);
 
     await tester.tap(find.text('Trailer'));
     await tester.pump();
     expect(trailerTapCount, 1);
-    expect(bannerTapCount, 0);
-
-    await tester.tap(find.text('FEATURED MOVIE'));
-    await tester.pump();
-    expect(bannerTapCount, 1);
   });
 
   testWidgets('hero title balances four to six word titles', (tester) async {
