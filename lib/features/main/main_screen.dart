@@ -22,9 +22,50 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   String? _selectedGenre;
+  bool _isValidatingSession = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    ref.listenManual(authControllerProvider, (previous, next) {
+      final hadSession = previous?.asData?.value != null;
+      final hasSession = next.asData?.value != null;
+      final hasNoSession = next.hasValue && next.asData?.value == null;
+
+      if (hadSession && hasNoSession && _isProtectedTab(_currentIndex)) {
+        setState(() => _currentIndex = 4);
+      }
+
+      if (!hadSession && hasSession) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _validateSessionIfSignedIn();
+        });
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _validateSessionIfSignedIn();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _validateSessionIfSignedIn();
+    }
+  }
 
   bool get _hasSession {
     return ref.read(authControllerProvider).asData?.value != null;
@@ -34,10 +75,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     setState(() => _currentIndex = index);
   }
 
-  void _handleTabTap(int index) {
+  Future<void> _handleTabTap(int index) async {
     if (_isProtectedTab(index) && !_hasSession) {
       _openAuth(onAuthenticated: () => _selectTab(index));
       return;
+    }
+
+    if (_shouldValidateBeforeOpening(index)) {
+      final isValid = await _validateSessionIfSignedIn();
+      if (!mounted) return;
+      if (!isValid) {
+        _selectTab(4);
+        return;
+      }
     }
 
     _selectTab(index);
@@ -45,6 +95,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   bool _isProtectedTab(int index) {
     return index == 2 || index == 3;
+  }
+
+  bool _shouldValidateBeforeOpening(int index) {
+    return _isProtectedTab(index) || index == 4;
   }
 
   void _openAuth({VoidCallback? onAuthenticated}) {
@@ -56,8 +110,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  void _openProtectedTab(int index) {
+  Future<void> _openProtectedTab(int index) async {
     if (_hasSession) {
+      final isValid = await _validateSessionIfSignedIn();
+      if (!mounted) return;
+      if (!isValid) {
+        _selectTab(4);
+        return;
+      }
+
       _selectTab(index);
       return;
     }
@@ -65,8 +126,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _openAuth(onAuthenticated: () => _selectTab(index));
   }
 
-  void _openProtectedRoute(WidgetBuilder builder) {
+  Future<void> _openProtectedRoute(WidgetBuilder builder) async {
     if (_hasSession) {
+      final isValid = await _validateSessionIfSignedIn();
+      if (!mounted) return;
+      if (!isValid) {
+        _selectTab(4);
+        return;
+      }
+
       Navigator.push(context, MaterialPageRoute(builder: builder));
       return;
     }
@@ -97,6 +165,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   Future<void> _signOut() async {
     await ref.read(authControllerProvider.notifier).signOut();
+  }
+
+  Future<bool> _validateSessionIfSignedIn() async {
+    if (!_hasSession) return false;
+    if (_isValidatingSession) return true;
+
+    _isValidatingSession = true;
+    try {
+      return await ref
+          .read(authControllerProvider.notifier)
+          .validateCurrentSession();
+    } finally {
+      _isValidatingSession = false;
+    }
   }
 
   Widget _profileScreen() {

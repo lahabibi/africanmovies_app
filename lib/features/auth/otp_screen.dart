@@ -103,13 +103,25 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     setState(() => _isVerifying = true);
 
     try {
-      final session = await ref
+      final result = await ref
           .read(authControllerProvider.notifier)
           .verifyOtp(email: widget.email, otp: otp);
+      final session = result.session;
 
       if (!mounted) return;
 
-      _showMessage('Signed in as ${session.user.email}');
+      final notice = result.deviceLimitNotice;
+      if (notice != null) {
+        final message = notice.revokedDevice == null
+            ? notice.message
+            : '${notice.message}\n\nSigned out: ${notice.revokedDevice}';
+
+        await _showDeviceLimitDialog(message);
+        if (!mounted) return;
+      } else {
+        _showMessage('Signed in as ${session.user.email}');
+      }
+
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
@@ -156,6 +168,52 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _showDeviceLimitDialog(String message) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            side: const BorderSide(color: AppColors.cardBorder),
+          ),
+          title: Text(
+            'Device limit reached',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            message,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14.sp,
+              height: 1.4,
+            ),
+          ),
+          actionsPadding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 14.h),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                'Got it',
+                style: TextStyle(
+                  color: AppColors.heroButton,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _formattedRemaining() {

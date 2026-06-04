@@ -136,7 +136,7 @@ class NonAuthProfileScreen extends StatelessWidget {
 
                         SizedBox(
                           width: double.infinity,
-                          height: 58.h,
+                          height: 52.h,
                           child: ElevatedButton.icon(
                             onPressed:
                                 onLoginRequested ?? () => _goToLogin(context),
@@ -166,7 +166,7 @@ class NonAuthProfileScreen extends StatelessWidget {
 
                         SizedBox(
                           width: double.infinity,
-                          height: 58.h,
+                          height: 52.h,
                           child: OutlinedButton.icon(
                             onPressed: () => onTabSelected?.call(0),
                             icon: Icon(

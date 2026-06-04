@@ -1,17 +1,25 @@
-import 'package:africanmovies/features/profile/devices_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../auth/domain/auth_device_session.dart';
 
 class DeviceCard extends StatelessWidget {
-  final DeviceInfo device;
+  final AuthDeviceSession device;
   final VoidCallback? onSignOut;
+  final bool isBusy;
 
-  const DeviceCard({super.key, required this.device, this.onSignOut});
+  const DeviceCard({
+    super.key,
+    required this.device,
+    this.onSignOut,
+    this.isBusy = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final lastActiveLabel = _lastActiveLabel(device.lastActiveAt);
+
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
@@ -28,7 +36,11 @@ class DeviceCard extends StatelessWidget {
               color: AppColors.primary.withValues(alpha: .16),
               borderRadius: BorderRadius.circular(12.r),
             ),
-            child: Icon(device.icon, color: AppColors.primary, size: 28.sp),
+            child: Icon(
+              _iconFor(device),
+              color: AppColors.primary,
+              size: 28.sp,
+            ),
           ),
 
           SizedBox(width: 16.w),
@@ -41,7 +53,7 @@ class DeviceCard extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        device.name,
+                        device.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -51,7 +63,7 @@ class DeviceCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (device.isCurrentDevice) ...[
+                    if (device.isCurrent) ...[
                       SizedBox(width: 8.w),
                       Container(
                         padding: EdgeInsets.symmetric(
@@ -78,7 +90,9 @@ class DeviceCard extends StatelessWidget {
                 SizedBox(height: 2.h),
 
                 Text(
-                  '${device.location}  •  ${device.os}',
+                  '${device.locationLabel}  •  ${device.osLabel}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: .62),
                     fontSize: 12.sp,
@@ -86,10 +100,12 @@ class DeviceCard extends StatelessWidget {
                   ),
                 ),
 
-                if (!device.isCurrentDevice && device.lastActive != null) ...[
+                if (lastActiveLabel != null) ...[
                   SizedBox(height: 3.h),
                   Text(
-                    'Last active: ${device.lastActive}',
+                    'Last active: $lastActiveLabel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: .62),
                       fontSize: 12.sp,
@@ -102,29 +118,85 @@ class DeviceCard extends StatelessWidget {
 
           SizedBox(width: 10.w),
 
-          if (device.isCurrentDevice)
+          if (device.isCurrent)
             Icon(Icons.check_rounded, color: AppColors.primary, size: 26.sp)
           else
             OutlinedButton(
-              onPressed: onSignOut,
+              onPressed: isBusy ? null : onSignOut,
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: Colors.white.withValues(alpha: .24)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6.r),
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
               ),
-              child: Text(
-                'Sign out',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              child: isBusy
+                  ? SizedBox(
+                      width: 14.w,
+                      height: 14.w,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : Text(
+                      'Sign out',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
             ),
         ],
       ),
     );
+  }
+
+  IconData _iconFor(AuthDeviceSession device) {
+    final label = '${device.platform} ${device.os} ${device.deviceType}'
+        .toLowerCase();
+
+    if (label.contains('android')) return Icons.phone_android_rounded;
+    if (label.contains('ios') || label.contains('iphone')) {
+      return Icons.phone_iphone_rounded;
+    }
+    if (label.contains('mac')) return Icons.laptop_mac_rounded;
+    if (label.contains('windows')) return Icons.desktop_windows_rounded;
+    if (label.contains('linux')) return Icons.computer_rounded;
+    if (label.contains('mobile')) return Icons.phone_iphone_rounded;
+
+    return Icons.devices_rounded;
+  }
+
+  String? _lastActiveLabel(DateTime? value) {
+    if (value == null) return null;
+
+    final now = DateTime.now();
+    final localValue = value.toLocal();
+    final difference = now.difference(localValue);
+
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inHours < 1) return '${difference.inMinutes} min ago';
+    if (difference.inDays < 1) return '${difference.inHours}h ago';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${months[localValue.month - 1]} ${localValue.day}, '
+        '${localValue.year}';
   }
 }

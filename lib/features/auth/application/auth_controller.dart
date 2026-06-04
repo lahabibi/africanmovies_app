@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers/app_providers.dart';
 import '../domain/auth_session.dart';
+import '../domain/auth_verification_result.dart';
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthSession?>(AuthController.new);
@@ -10,6 +11,8 @@ final authControllerProvider =
 class AuthController extends AsyncNotifier<AuthSession?> {
   @override
   Future<AuthSession?> build() async {
+    ref.watch(authSessionInvalidationProvider);
+
     final tokenStore = ref.watch(secureTokenStoreProvider);
     final sessionStore = ref.watch(authSessionStoreProvider);
 
@@ -38,7 +41,7 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     }
   }
 
-  Future<AuthSession> verifyOtp({
+  Future<AuthVerificationResult> verifyOtp({
     required String email,
     required String otp,
   }) async {
@@ -46,13 +49,14 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     state = const AsyncLoading();
 
     try {
-      final session = await ref
+      final result = await ref
           .read(authRepositoryProvider)
           .verifyOtp(email: email, otp: otp);
+      final session = result.session;
 
       await ref.read(authSessionStoreProvider).save(session);
       state = AsyncData(session);
-      return session;
+      return result;
     } catch (error, stackTrace) {
       state = AsyncData(previousSession);
       Error.throwWithStackTrace(error, stackTrace);
@@ -111,6 +115,41 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     await ref.read(authSessionStoreProvider).clear();
 
     state = const AsyncData(null);
+  }
+
+  Future<void> signOutAllDevices() async {
+    final previousSession = state.asData?.value;
+    state = const AsyncLoading();
+
+    try {
+      await ref.read(authRepositoryProvider).logoutAllDevices();
+      await ref.read(authSessionStoreProvider).clear();
+
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      state = AsyncData(previousSession);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  Future<bool> validateCurrentSession() async {
+    final session = state.asData?.value;
+    if (session == null) return false;
+
+    try {
+      await ref.read(authRepositoryProvider).fetchDevices();
+      return true;
+    } catch (error) {
+      if (error is ApiException && error.isAuthSessionExpired) {
+        await ref.read(secureTokenStoreProvider).clear();
+        await ref.read(authSessionStoreProvider).clear();
+        state = const AsyncData(null);
+
+        return false;
+      }
+
+      return true;
+    }
   }
 
   AuthSession _requireSession() {

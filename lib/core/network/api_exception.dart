@@ -3,8 +3,9 @@ import 'package:dio/dio.dart';
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
+  final String? code;
 
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.code});
 
   factory ApiException.fromDio(DioException error) {
     if (_isNetworkFailure(error)) {
@@ -17,9 +18,14 @@ class ApiException implements Exception {
     final data = response?.data;
 
     if (data is Map<String, dynamic>) {
+      final code = data['code']?.toString();
       final message = data['message'];
       if (message is String && message.isNotEmpty) {
-        return ApiException(message, statusCode: response?.statusCode);
+        return ApiException(
+          message,
+          statusCode: response?.statusCode,
+          code: code,
+        );
       }
     }
 
@@ -31,6 +37,12 @@ class ApiException implements Exception {
       error.message ?? 'Something went wrong. Please try again.',
       statusCode: response?.statusCode,
     );
+  }
+
+  bool get isAuthSessionExpired {
+    return code == 'INVALID_DEVICE' ||
+        code == 'TOKEN_EXPIRED' ||
+        code == 'INVALID_TOKEN';
   }
 
   @override

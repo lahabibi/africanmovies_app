@@ -1,24 +1,25 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
-import '../../../core/storage/device_identity_store.dart';
 import '../../../core/storage/secure_token_store.dart';
+import '../domain/auth_device_session.dart';
 import '../domain/auth_session.dart';
+import '../domain/auth_verification_result.dart';
+import 'device_metadata_service.dart';
 
 class AuthRepository {
   AuthRepository({
     required ApiClient apiClient,
     required SecureTokenStore tokenStore,
-    required DeviceIdentityStore deviceIdentityStore,
+    required DeviceMetadataService deviceMetadataService,
   }) : _apiClient = apiClient,
        _tokenStore = tokenStore,
-       _deviceIdentityStore = deviceIdentityStore;
+       _deviceMetadataService = deviceMetadataService;
 
   final ApiClient _apiClient;
   final SecureTokenStore _tokenStore;
-  final DeviceIdentityStore _deviceIdentityStore;
+  final DeviceMetadataService _deviceMetadataService;
 
   Future<void> requestOtp(String email) async {
     try {
@@ -31,7 +32,7 @@ class AuthRepository {
     }
   }
 
-  Future<AuthSession> verifyOtp({
+  Future<AuthVerificationResult> verifyOtp({
     required String email,
     required String otp,
   }) async {
@@ -41,7 +42,7 @@ class AuthRepository {
         data: {
           'email': email.trim().toLowerCase(),
           'otp': otp.trim(),
-          ...await _devicePayload(),
+          ...await _deviceMetadataService.verificationPayload(),
         },
       );
 
@@ -50,10 +51,12 @@ class AuthRepository {
         throw const ApiException('Missing verification response');
       }
 
-      final session = AuthSession.fromJson(data);
-      await _tokenStore.saveTokens(AuthTokens(accessToken: session.token));
+      final result = AuthVerificationResult.fromJson(data);
+      await _tokenStore.saveTokens(
+        AuthTokens(accessToken: result.session.token),
+      );
 
-      return session;
+      return result;
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
@@ -123,26 +126,64 @@ class AuthRepository {
     }
   }
 
-  Future<Map<String, String>> _devicePayload() async {
-    final platform = defaultTargetPlatform.name;
+  Future<List<AuthDeviceSession>> fetchDevices() async {
+    try {
+      final response = await _apiClient.get<dynamic>('/auth/devices');
+      final data = response.data;
 
-    return {
-      'deviceId': await _deviceIdentityStore.readOrCreateDeviceId(),
-      'deviceType': _deviceTypeForPlatform(defaultTargetPlatform),
-      'deviceName': 'AfricanMovies App',
-      'platform': platform,
-      'os': platform,
-      'userAgentName': 'AfricanMovies Flutter',
-    };
+      if (data is List) {
+        return data.whereType<Map>().map((item) {
+          return AuthDeviceSession.fromJson(Map<String, dynamic>.from(item));
+        }).toList();
+      }
+
+      if (data is Map && data['devices'] is List) {
+        return (data['devices'] as List).whereType<Map>().map((item) {
+          return AuthDeviceSession.fromJson(Map<String, dynamic>.from(item));
+        }).toList();
+      }
+
+      throw const ApiException('Missing logged in devices');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
   }
 
-  String _deviceTypeForPlatform(TargetPlatform platform) {
-    return switch (platform) {
-      TargetPlatform.android || TargetPlatform.iOS => 'Mobile',
-      TargetPlatform.macOS ||
-      TargetPlatform.windows ||
-      TargetPlatform.linux => 'Desktop',
-      TargetPlatform.fuchsia => 'Unknown',
-    };
+  Future<void> enrichCurrentDevice() async {
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '/auth/devices/enrich',
+        data: await _deviceMetadataService.enrichPayload(),
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<void> logoutDevice(String id) async {
+    try {
+      await _apiClient.post<Map<String, dynamic>>('/auth/devices/logout/$id');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<void> logoutOtherDevices() async {
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '/auth/devices/logout-others',
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<void> logoutAllDevices() async {
+    try {
+      await _apiClient.post<Map<String, dynamic>>('/auth/logout-all');
+      await _tokenStore.clear();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
   }
 }

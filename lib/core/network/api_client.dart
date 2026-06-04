@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../config/app_config.dart';
+import 'api_exception.dart';
 import '../storage/device_identity_store.dart';
 import '../storage/secure_token_store.dart';
 
@@ -8,9 +9,11 @@ class ApiClient {
   ApiClient({
     required SecureTokenStore tokenStore,
     required DeviceIdentityStore deviceIdentityStore,
+    Future<void> Function(ApiException exception)? onAuthSessionExpired,
     Dio? dio,
   }) : _tokenStore = tokenStore,
        _deviceIdentityStore = deviceIdentityStore,
+       _onAuthSessionExpired = onAuthSessionExpired,
        dio =
            dio ??
            Dio(
@@ -37,12 +40,24 @@ class ApiClient {
 
           handler.next(options);
         },
+        onError: (error, handler) async {
+          final exception = ApiException.fromDio(error);
+          final requestWasAuthenticated = error.requestOptions.headers
+              .containsKey('x-auth-token');
+
+          if (requestWasAuthenticated && exception.isAuthSessionExpired) {
+            await _onAuthSessionExpired?.call(exception);
+          }
+
+          handler.next(error);
+        },
       ),
     );
   }
 
   final SecureTokenStore _tokenStore;
   final DeviceIdentityStore _deviceIdentityStore;
+  final Future<void> Function(ApiException exception)? _onAuthSessionExpired;
   final Dio dio;
 
   Future<Response<T>> get<T>(

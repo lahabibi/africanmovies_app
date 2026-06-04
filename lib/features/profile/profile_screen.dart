@@ -9,15 +9,17 @@ import 'package:africanmovies/features/profile/widgets/profile_menu_tile.dart';
 import 'package:africanmovies/features/profile/widgets/profile_stat_item.dart';
 import 'package:africanmovies/features/profile/widgets/profile_avatar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
 import '../../core/utils/responsive.dart';
+import '../auth/application/auth_device_providers.dart';
 import '../auth/domain/auth_session.dart';
 import 'edit_profile_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   final AuthUser user;
   final ValueChanged<int>? onTabSelected;
   final Future<void> Function()? onSignOut;
@@ -49,7 +51,7 @@ class ProfileScreen extends StatelessWidget {
       icon: Icons.phone_iphone_rounded,
       title: 'Logged In Devices',
       subtitle: 'Manage active sessions',
-      trailingText: '2 devices',
+      showsDeviceCount: true,
     ),
     _ProfileMenuItem(
       icon: Icons.account_balance_wallet_outlined,
@@ -130,8 +132,15 @@ class ProfileScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final headerHeight = Responsive.headerHeight(context);
+    final deviceCountText = ref
+        .watch(authDevicesProvider)
+        .when(
+          data: (devices) => _formatDeviceCount(devices.length),
+          loading: () => '...',
+          error: (_, _) => null,
+        );
 
     return AppScaffold(
       usePadding: true,
@@ -286,7 +295,9 @@ class ProfileScreen extends StatelessWidget {
                               icon: item.icon,
                               title: item.title,
                               subtitle: item.subtitle,
-                              trailingText: item.trailingText,
+                              trailingText: item.showsDeviceCount
+                                  ? deviceCountText
+                                  : null,
                               showDivider: index != _menuItems.length - 1,
                               onTap: () {
                                 switch (item.title) {
@@ -406,18 +417,22 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+
+  String _formatDeviceCount(int count) {
+    return '$count ${count == 1 ? 'device' : 'devices'}';
+  }
 }
 
 class _ProfileMenuItem {
   final IconData icon;
   final String title;
   final String subtitle;
-  final String? trailingText;
+  final bool showsDeviceCount;
 
   const _ProfileMenuItem({
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.trailingText,
+    this.showsDeviceCount = false,
   });
 }
