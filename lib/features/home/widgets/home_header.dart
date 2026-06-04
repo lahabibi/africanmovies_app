@@ -8,6 +8,7 @@ import '../../auth/application/auth_controller.dart';
 import '../../auth/auth_screen.dart';
 import '../../notifications/application/notification_providers.dart';
 import '../../notifications/notifications_screen.dart';
+import '../../profile/widgets/profile_avatar.dart';
 import '../../search/search_screen.dart';
 
 class HomeHeader extends ConsumerWidget {
@@ -15,9 +16,9 @@ class HomeHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasSession = ref
+    final session = ref
         .watch(authControllerProvider)
-        .maybeWhen(data: (session) => session != null, orElse: () => false);
+        .maybeWhen(data: (session) => session, orElse: () => null);
     final unreadNotificationCount = ref.watch(unreadNotificationCountProvider);
 
     return Row(
@@ -47,14 +48,12 @@ class HomeHeader extends ConsumerWidget {
           },
         ),
         SizedBox(width: 12.w),
-        if (hasSession) ...[
-          Container(
+        if (session != null) ...[
+          ProfileAvatar(
             key: const Key('home_header_profile'),
-            width: 36.w,
-            height: 36.w,
-            clipBehavior: Clip.antiAlias,
-            decoration: const BoxDecoration(shape: BoxShape.circle),
-            child: Image.asset(AppAssets.profile, fit: BoxFit.cover),
+            profileUrl: session.user.profileUrl,
+            size: 36.w,
+            showBorder: false,
           ),
         ] else
           _HeaderIcon(

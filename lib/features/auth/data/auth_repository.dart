@@ -59,6 +59,60 @@ class AuthRepository {
     }
   }
 
+  Future<AuthUser> updateUsername(String username) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/auth/update-username',
+        data: {'username': username.trim()},
+      );
+
+      final data = response.data;
+      final user = data?['user'];
+      if (user is! Map) {
+        throw const ApiException('Missing updated profile');
+      }
+
+      return AuthUser.fromJson(Map<String, dynamic>.from(user));
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<String> uploadProfileImage({
+    required String filePath,
+    required String fileName,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/auth/upload',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      final fileLocation = response.data?['fileLocation'];
+      if (fileLocation is! String || fileLocation.trim().isEmpty) {
+        throw const ApiException('Missing uploaded profile image');
+      }
+
+      return fileLocation;
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<void> deleteProfileImage() async {
+    try {
+      await _apiClient.delete<dynamic>('/auth/profileimage');
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) return;
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await _apiClient.post<Map<String, dynamic>>('/auth/logout');

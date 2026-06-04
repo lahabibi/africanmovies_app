@@ -7,10 +7,10 @@ import 'package:africanmovies/features/profile/payment_details_screen.dart';
 import 'package:africanmovies/shared/widgets/app_scaffold.dart';
 import 'package:africanmovies/features/profile/widgets/profile_menu_tile.dart';
 import 'package:africanmovies/features/profile/widgets/profile_stat_item.dart';
+import 'package:africanmovies/features/profile/widgets/profile_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
 import '../../core/utils/responsive.dart';
@@ -153,44 +153,9 @@ class ProfileScreen extends StatelessWidget {
 
                       Row(
                         children: [
-                          Stack(
-                            children: [
-                              Container(
-                                width: 96.w,
-                                height: 96.w,
-                                padding: EdgeInsets.all(2.w),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.heroButton,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: ClipOval(
-                                  child: Image.asset(
-                                    AppAssets.profile,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                              // Positioned(
-                              //   right: 0,
-                              //   bottom: 4.h,
-                              //   child: Container(
-                              //     width: 28.w,
-                              //     height: 28.w,
-                              //     decoration: const BoxDecoration(
-                              //       shape: BoxShape.circle,
-                              //       color: AppColors.heroButton,
-                              //     ),
-                              //     child: Icon(
-                              //       Icons.edit_rounded,
-                              //       color: Colors.white,
-                              //       size: 14.sp,
-                              //     ),
-                              //   ),
-                              // ),
-                            ],
+                          ProfileAvatar(
+                            profileUrl: user.profileUrl,
+                            size: 96.w,
                           ),
 
                           SizedBox(width: 18.w),

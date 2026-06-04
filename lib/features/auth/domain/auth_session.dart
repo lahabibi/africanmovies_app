@@ -6,6 +6,10 @@ class AuthSession {
 
   const AuthSession({required this.token, required this.user});
 
+  AuthSession copyWith({String? token, AuthUser? user}) {
+    return AuthSession(token: token ?? this.token, user: user ?? this.user);
+  }
+
   factory AuthSession.fromJson(Map<String, dynamic> json) {
     final userJson = json['user'];
     if (userJson is! Map) {
@@ -46,6 +50,9 @@ class AuthSession {
 }
 
 class AuthUser {
+  static const defaultProfileUrl =
+      'https://upload.wikimedia.org/wikipedia/commons/7/7c/Profile_avatar_placeholder_large.png';
+
   final String id;
   final String email;
   final String username;
@@ -66,6 +73,30 @@ class AuthUser {
       profileUrl:
           json['profileURL']?.toString() ?? json['profileUrl']?.toString(),
     );
+  }
+
+  bool get hasProfileImage => hasProfileImageUrl(profileUrl);
+
+  AuthUser copyWith({
+    String? id,
+    String? email,
+    String? username,
+    String? profileUrl,
+  }) {
+    return AuthUser(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      username: username ?? this.username,
+      profileUrl: profileUrl ?? this.profileUrl,
+    );
+  }
+
+  static bool hasProfileImageUrl(String? profileUrl) {
+    final value = profileUrl?.trim() ?? '';
+    if (value.isEmpty) return false;
+    if (value == defaultProfileUrl) return false;
+
+    return !value.contains('Profile_avatar_placeholder');
   }
 
   Map<String, dynamic> toJson() {

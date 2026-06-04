@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/api_exception.dart';
 import '../../../core/providers/app_providers.dart';
 import '../domain/auth_session.dart';
 
@@ -58,6 +59,51 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     }
   }
 
+  Future<AuthSession> updateUsername(String username) async {
+    final currentSession = _requireSession();
+    final updatedUser = await ref
+        .read(authRepositoryProvider)
+        .updateUsername(username);
+
+    final session = currentSession.copyWith(
+      user: _mergeUser(currentSession.user, updatedUser),
+    );
+
+    await _saveSession(session);
+    return session;
+  }
+
+  Future<AuthSession> uploadProfileImage({
+    required String filePath,
+    required String fileName,
+  }) async {
+    final currentSession = _requireSession();
+    final profileUrl = await ref
+        .read(authRepositoryProvider)
+        .uploadProfileImage(filePath: filePath, fileName: fileName);
+
+    final session = currentSession.copyWith(
+      user: currentSession.user.copyWith(profileUrl: profileUrl),
+    );
+
+    await _saveSession(session);
+    return session;
+  }
+
+  Future<AuthSession> deleteProfileImage() async {
+    final currentSession = _requireSession();
+    await ref.read(authRepositoryProvider).deleteProfileImage();
+
+    final session = currentSession.copyWith(
+      user: currentSession.user.copyWith(
+        profileUrl: AuthUser.defaultProfileUrl,
+      ),
+    );
+
+    await _saveSession(session);
+    return session;
+  }
+
   Future<void> signOut() async {
     state = const AsyncLoading();
 
@@ -65,5 +111,32 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     await ref.read(authSessionStoreProvider).clear();
 
     state = const AsyncData(null);
+  }
+
+  AuthSession _requireSession() {
+    final session = state.asData?.value;
+    if (session == null) {
+      throw const ApiException('Sign in to update your profile.');
+    }
+
+    return session;
+  }
+
+  Future<void> _saveSession(AuthSession session) async {
+    await ref.read(authSessionStoreProvider).save(session);
+    state = AsyncData(session);
+  }
+
+  AuthUser _mergeUser(AuthUser currentUser, AuthUser updatedUser) {
+    return currentUser.copyWith(
+      id: updatedUser.id.isNotEmpty ? updatedUser.id : currentUser.id,
+      email: updatedUser.email.isNotEmpty
+          ? updatedUser.email
+          : currentUser.email,
+      username: updatedUser.username.isNotEmpty
+          ? updatedUser.username
+          : currentUser.username,
+      profileUrl: updatedUser.profileUrl ?? currentUser.profileUrl,
+    );
   }
 }
