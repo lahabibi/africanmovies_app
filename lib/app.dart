@@ -1,4 +1,5 @@
 import 'package:africanmovies/features/main/main_screen.dart';
+import 'package:africanmovies/shared/widgets/network_gate.dart';
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/responsive.dart';
@@ -20,6 +21,9 @@ class AfricanMoviesApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           title: 'AfricanMovies',
           theme: AppTheme.darkTheme,
+          builder: (context, appChild) {
+            return NetworkGate(child: appChild ?? const SizedBox.shrink());
+          },
           home: child,
         );
       },

@@ -7,6 +7,12 @@ class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
 
   factory ApiException.fromDio(DioException error) {
+    if (_isNetworkFailure(error)) {
+      return const ApiException(
+        'No internet connection. Please check your network and try again.',
+      );
+    }
+
     final response = error.response;
     final data = response?.data;
 
@@ -29,4 +35,14 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+bool _isNetworkFailure(DioException error) {
+  return switch (error.type) {
+    DioExceptionType.connectionError ||
+    DioExceptionType.connectionTimeout ||
+    DioExceptionType.receiveTimeout ||
+    DioExceptionType.sendTimeout => true,
+    _ => false,
+  };
 }
