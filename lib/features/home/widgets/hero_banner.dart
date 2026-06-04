@@ -41,17 +41,24 @@ class HeroBanner extends StatelessWidget {
   });
 
   String _formatTitle(String title) {
-    final words = title.trim().split(' ');
+    final words = title
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
 
-    if (words.length == 2) {
-      return '${words[0]}\n${words[1]}';
+    final firstLineWordCount = switch (words.length) {
+      2 => 1,
+      3 || 4 => 2,
+      5 || 6 => 3,
+      _ => null,
+    };
+
+    if (firstLineWordCount == null) {
+      return title.trim();
     }
 
-    if (words.length == 3) {
-      return '${words[0]} ${words[1]}\n${words[2]}';
-    }
-
-    return title;
+    return '${words.take(firstLineWordCount).join(' ')}\n${words.skip(firstLineWordCount).join(' ')}';
   }
 
   @override
