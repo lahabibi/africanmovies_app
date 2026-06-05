@@ -44,18 +44,24 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                 constraints: BoxConstraints(
                   maxWidth: Responsive.contentMaxWidth(context),
                 ),
-                child: watchlistState.when(
-                  loading: () => const _WatchlistLoadingState(),
-                  error: (error, _) => _WatchlistErrorState(
-                    message: _messageFor(error),
-                    onRetry: () => ref.invalidate(watchlistControllerProvider),
-                  ),
-                  data: (movies) => _WatchlistContent(
-                    movies: movies,
-                    removingMovieId: _removingMovieId,
-                    onMovieTap: _openMovieDetails,
-                    onRemoveMovie: _removeFromWatchlist,
-                    onBrowseMovies: widget.onBrowseMovies,
+                child: RefreshIndicator(
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.card,
+                  onRefresh: _refreshWatchlist,
+                  child: watchlistState.when(
+                    loading: () => const _WatchlistLoadingState(),
+                    error: (error, _) => _WatchlistErrorState(
+                      message: _messageFor(error),
+                      onRetry: () =>
+                          ref.invalidate(watchlistControllerProvider),
+                    ),
+                    data: (movies) => _WatchlistContent(
+                      movies: movies,
+                      removingMovieId: _removingMovieId,
+                      onMovieTap: _openMovieDetails,
+                      onRemoveMovie: _removeFromWatchlist,
+                      onBrowseMovies: widget.onBrowseMovies,
+                    ),
                   ),
                 ),
               ),
@@ -71,6 +77,11 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _refreshWatchlist() async {
+    ref.invalidate(watchlistControllerProvider);
+    await ref.read(watchlistControllerProvider.future);
   }
 
   void _openMovieDetails(Movie movie) {
@@ -183,6 +194,7 @@ class _WatchlistContent extends StatelessWidget {
     final gridSpacing = Responsive.gridSpacing(context);
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: 20.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,6 +391,7 @@ class _WatchlistLoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: 20.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,6 +424,7 @@ class _WatchlistErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: 20.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

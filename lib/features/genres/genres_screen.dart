@@ -75,6 +75,10 @@ class _GenresScreenState extends ConsumerState<GenresScreen> {
     }
   }
 
+  Future<void> _refreshHomeData() async {
+    await forceRefreshHomeData(ref);
+  }
+
   Widget _buildGenresContent(HomeData data) {
     final genres = _genreItems(data);
     if (genres.isEmpty) {
@@ -321,38 +325,44 @@ class _GenresScreenState extends ConsumerState<GenresScreen> {
         children: [
           Padding(
             padding: EdgeInsets.only(top: headerHeight),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: 20.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GenreTabSelector(
-                    selectedIndex: _selectedTabIndex,
-                    onChanged: (index) {
-                      setState(() => _selectedTabIndex = index);
-                    },
-                  ),
-                  SizedBox(height: 12.h),
-
-                  if (_selectedTabIndex == 0)
-                    homeData.when(
-                      data: _buildGenresContent,
-                      error: (error, _) => _GenresErrorView(
-                        message: error.toString(),
-                        onRetry: () => ref.invalidate(homeDataProvider),
-                      ),
-                      loading: _GenresLoadingView.new,
-                    )
-                  else
-                    homeData.when(
-                      data: _buildLanguagesContent,
-                      error: (error, _) => _GenresErrorView(
-                        message: error.toString(),
-                        onRetry: () => ref.invalidate(homeDataProvider),
-                      ),
-                      loading: _GenresLoadingView.new,
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              backgroundColor: AppColors.card,
+              onRefresh: _refreshHomeData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.only(bottom: 20.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GenreTabSelector(
+                      selectedIndex: _selectedTabIndex,
+                      onChanged: (index) {
+                        setState(() => _selectedTabIndex = index);
+                      },
                     ),
-                ],
+                    SizedBox(height: 12.h),
+
+                    if (_selectedTabIndex == 0)
+                      homeData.when(
+                        data: _buildGenresContent,
+                        error: (error, _) => _GenresErrorView(
+                          message: error.toString(),
+                          onRetry: () => ref.invalidate(homeDataProvider),
+                        ),
+                        loading: _GenresLoadingView.new,
+                      )
+                    else
+                      homeData.when(
+                        data: _buildLanguagesContent,
+                        error: (error, _) => _GenresErrorView(
+                          message: error.toString(),
+                          onRetry: () => ref.invalidate(homeDataProvider),
+                        ),
+                        loading: _GenresLoadingView.new,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

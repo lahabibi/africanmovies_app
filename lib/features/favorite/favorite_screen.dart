@@ -44,18 +44,23 @@ class _FavoriteScreenState extends ConsumerState<FavoriteScreen> {
                 constraints: BoxConstraints(
                   maxWidth: Responsive.contentMaxWidth(context),
                 ),
-                child: favoriteState.when(
-                  loading: () => const _FavoriteLoadingState(),
-                  error: (error, _) => _FavoriteErrorState(
-                    message: _messageFor(error),
-                    onRetry: () => ref.invalidate(favoriteControllerProvider),
-                  ),
-                  data: (movies) => _FavoriteContent(
-                    movies: movies,
-                    removingMovieId: _removingMovieId,
-                    onMovieTap: _openMovieDetails,
-                    onRemoveMovie: _removeFromFavorites,
-                    onBrowseMovies: widget.onBrowseMovies,
+                child: RefreshIndicator(
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.card,
+                  onRefresh: _refreshFavorites,
+                  child: favoriteState.when(
+                    loading: () => const _FavoriteLoadingState(),
+                    error: (error, _) => _FavoriteErrorState(
+                      message: _messageFor(error),
+                      onRetry: () => ref.invalidate(favoriteControllerProvider),
+                    ),
+                    data: (movies) => _FavoriteContent(
+                      movies: movies,
+                      removingMovieId: _removingMovieId,
+                      onMovieTap: _openMovieDetails,
+                      onRemoveMovie: _removeFromFavorites,
+                      onBrowseMovies: widget.onBrowseMovies,
+                    ),
                   ),
                 ),
               ),
@@ -74,6 +79,11 @@ class _FavoriteScreenState extends ConsumerState<FavoriteScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _refreshFavorites() async {
+    ref.invalidate(favoriteControllerProvider);
+    await ref.read(favoriteControllerProvider.future);
   }
 
   void _openMovieDetails(Movie movie) {
@@ -187,6 +197,7 @@ class _FavoriteContent extends StatelessWidget {
     final gridSpacing = Responsive.gridSpacing(context);
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: 20.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,6 +398,7 @@ class _FavoriteLoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: 20.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,6 +431,7 @@ class _FavoriteErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(bottom: 20.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

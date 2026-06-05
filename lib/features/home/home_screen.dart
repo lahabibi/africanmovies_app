@@ -63,8 +63,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refreshHomeData() async {
-    ref.invalidate(homeDataProvider);
-    await ref.read(homeDataProvider.future);
+    await forceRefreshHomeData(ref);
   }
 
   void _openMovieDetails(Movie movie) {
@@ -143,7 +142,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final genreMovieSections = _genreMovieSections(data, genreItems);
     final continueWatchingMovies = data.continueWatchingMovies;
 
-    if (data.movies.isEmpty) return const _HomeEmptyView();
+    if (data.movies.isEmpty) {
+      return RefreshIndicator(
+        color: AppColors.primary,
+        backgroundColor: AppColors.card,
+        onRefresh: _refreshHomeData,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: constraints.maxHeight,
+                child: const _HomeEmptyView(),
+              ),
+            );
+          },
+        ),
+      );
+    }
 
     _heroItemCount = heroMovies.length;
     if (_activeHeroIndex >= _heroItemCount) _activeHeroIndex = 0;

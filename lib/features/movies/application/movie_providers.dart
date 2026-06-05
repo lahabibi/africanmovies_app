@@ -25,6 +25,13 @@ final homeDataProvider = FutureProvider<HomeData>((ref) async {
   return homeData;
 });
 
+Future<HomeData> forceRefreshHomeData(WidgetRef ref) async {
+  await ref.read(movieRepositoryProvider).fetchHomeData(forceRefresh: true);
+  ref.invalidate(homeDataProvider);
+
+  return ref.read(homeDataProvider.future);
+}
+
 final movieSearchProvider = FutureProvider.autoDispose
     .family<List<Movie>, String>((ref, query) async {
       final normalizedQuery = query.trim();
