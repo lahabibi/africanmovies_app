@@ -1,5 +1,6 @@
 import 'package:africanmovies/features/auth/auth_screen.dart';
 import 'package:africanmovies/features/auth/application/auth_controller.dart';
+import 'package:africanmovies/features/favorite/application/favorite_controller.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_hero.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_info_card.dart';
 import 'package:africanmovies/features/movie_details/widgets/movie_purchase_button.dart';
@@ -31,6 +32,7 @@ class MovieDetailsScreen extends ConsumerStatefulWidget {
 
 class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   bool _isTogglingWatchlist = false;
+  bool _isTogglingFavorite = false;
 
   Movie get movie => widget.movie;
 
@@ -85,6 +87,34 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     }
   }
 
+  Future<void> _toggleFavorite() async {
+    if (_isTogglingFavorite) return;
+    if (!_requireAuth(context, ref)) return;
+
+    setState(() => _isTogglingFavorite = true);
+
+    try {
+      final action = await ref
+          .read(favoriteControllerProvider.notifier)
+          .toggle(movie);
+
+      if (!mounted) return;
+
+      _showMessage(
+        action == FavoriteAction.added
+            ? 'Added to favorites'
+            : 'Removed from favorites',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_messageFor(error));
+    } finally {
+      if (mounted) {
+        setState(() => _isTogglingFavorite = false);
+      }
+    }
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -124,7 +154,11 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     final watchlistState = hasSession
         ? ref.watch(watchlistControllerProvider)
         : const AsyncData<List<Movie>>([]);
+    final favoriteState = hasSession
+        ? ref.watch(favoriteControllerProvider)
+        : const AsyncData<List<Movie>>([]);
     final isInWatchlist = hasSession && _isMovieInWatchlist(watchlistState);
+    final isFavorite = hasSession && _isMovieFavorite(favoriteState);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -184,11 +218,13 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                           ),
                           SizedBox(width: 6.w),
                           MovieSmallAction(
-                            icon: Icons.favorite_border_rounded,
-                            label: 'Favorite',
-                            onTap: () {
-                              _requireAuth(context, ref);
-                            },
+                            icon: isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            label: isFavorite ? 'Liked' : 'Favorite',
+                            isActive: isFavorite,
+                            isLoading: _isTogglingFavorite,
+                            onTap: _toggleFavorite,
                           ),
                         ],
                       ),
@@ -256,6 +292,14 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
       data: (movies) => movies.any((movie) => movie.id == widget.movie.id),
       loading: () => widget.movie.inWatchlist,
       error: (_, _) => widget.movie.inWatchlist,
+    );
+  }
+
+  bool _isMovieFavorite(AsyncValue<List<Movie>> favoriteState) {
+    return favoriteState.when(
+      data: (movies) => movies.any((movie) => movie.id == widget.movie.id),
+      loading: () => widget.movie.isFavorite,
+      error: (_, _) => widget.movie.isFavorite,
     );
   }
 

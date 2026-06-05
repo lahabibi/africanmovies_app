@@ -16,6 +16,10 @@ class FavoriteMovieCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onMoreTap;
   final VoidCallback? onPlayTap;
+  final IconData menuIcon;
+  final String menuTitle;
+  final String? menuSubtitle;
+  final bool isMenuLoading;
 
   const FavoriteMovieCard({
     super.key,
@@ -28,6 +32,10 @@ class FavoriteMovieCard extends StatelessWidget {
     this.onTap,
     this.onMoreTap,
     this.onPlayTap,
+    this.menuIcon = Icons.play_arrow_rounded,
+    this.menuTitle = 'Watch Now',
+    this.menuSubtitle = '\$0.99',
+    this.isMenuLoading = false,
   });
 
   @override
@@ -71,24 +79,34 @@ class FavoriteMovieCard extends StatelessWidget {
                     child: AppContextMenu(
                       items: [
                         AppContextMenuItem(
-                          icon: Icons.play_arrow_rounded,
-                          title: 'Watch Now',
-                          subtitle: '\$0.99',
-                          onTap: onMoreTap,
+                          icon: menuIcon,
+                          title: isMenuLoading ? 'Removing...' : menuTitle,
+                          subtitle: isMenuLoading ? null : menuSubtitle,
+                          onTap: isMenuLoading ? null : onMoreTap,
                         ),
                       ],
                       child: Container(
                         width: 26.w,
                         height: 26.w,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.black.withValues(alpha: 0.42),
                         ),
-                        child: Icon(
-                          Icons.more_vert_rounded,
-                          color: Colors.white,
-                          size: 16.sp,
-                        ),
+                        child: isMenuLoading
+                            ? SizedBox(
+                                width: 12.w,
+                                height: 12.w,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 1.8,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Icon(
+                                Icons.more_vert_rounded,
+                                color: Colors.white,
+                                size: 16.sp,
+                              ),
                       ),
                     ),
                   ),
@@ -101,6 +119,7 @@ class FavoriteMovieCard extends StatelessWidget {
                       child: Container(
                         width: 22.w,
                         height: 22.w,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.black.withValues(alpha: 0.42),

@@ -1,4 +1,5 @@
 import 'package:africanmovies/features/favorite/favorite_screen.dart';
+import 'package:africanmovies/features/favorite/application/favorite_controller.dart';
 import 'package:africanmovies/features/profile/about_african_movies_screen.dart';
 import 'package:africanmovies/features/profile/devices_screen.dart';
 import 'package:africanmovies/features/home/widgets/home_header.dart';
@@ -141,6 +142,13 @@ class ProfileScreen extends ConsumerWidget {
           loading: () => '...',
           error: (_, _) => null,
         );
+    final favoriteCountText = ref
+        .watch(favoriteControllerProvider)
+        .when(
+          data: (movies) => movies.length.toString(),
+          loading: () => '...',
+          error: (_, _) => '--',
+        );
 
     return AppScaffold(
       usePadding: true,
@@ -271,7 +279,7 @@ class ProfileScreen extends ConsumerWidget {
                             Expanded(
                               child: ProfileStatItem(
                                 icon: Icons.favorite_rounded,
-                                value: '18',
+                                value: favoriteCountText,
                                 label: 'Favorited Movies',
                               ),
                             ),
