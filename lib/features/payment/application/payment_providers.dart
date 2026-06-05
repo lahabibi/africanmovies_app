@@ -11,6 +11,7 @@ import '../data/payment_repository.dart';
 import '../domain/payment_gateway.dart';
 import '../domain/payment_intent.dart';
 import '../domain/purchase_result.dart';
+import '../domain/saved_payment_method.dart';
 
 final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
   return PaymentRepository(apiClient: ref.watch(apiClientProvider));
@@ -24,6 +25,35 @@ final purchaseControllerProvider =
     AsyncNotifierProvider<PurchaseController, PurchaseResult?>(
       PurchaseController.new,
     );
+
+final savedPaymentMethodControllerProvider =
+    AsyncNotifierProvider<SavedPaymentMethodController, SavedPaymentMethod?>(
+      SavedPaymentMethodController.new,
+    );
+
+class SavedPaymentMethodController extends AsyncNotifier<SavedPaymentMethod?> {
+  @override
+  Future<SavedPaymentMethod?> build() {
+    return ref.watch(paymentRepositoryProvider).fetchSavedPaymentMethod();
+  }
+
+  Future<SavedPaymentMethod> saveFromTransaction(String transactionId) async {
+    final previousPaymentMethod = state.asData?.value;
+    state = const AsyncLoading();
+
+    try {
+      final paymentMethod = await ref
+          .read(paymentRepositoryProvider)
+          .savePaymentMethod(transactionId: transactionId, isNewCard: true);
+      state = AsyncData(paymentMethod);
+
+      return paymentMethod;
+    } catch (error, stackTrace) {
+      state = AsyncData(previousPaymentMethod);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+}
 
 class PurchaseController extends AsyncNotifier<PurchaseResult?> {
   @override

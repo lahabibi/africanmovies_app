@@ -20,6 +20,14 @@ class PurchaseResult {
         status == PurchaseResultStatus.alreadyPurchased;
   }
 
+  bool get canSavePaymentMethod {
+    final normalizedPaymentType = paymentType?.trim().toLowerCase();
+
+    return status == PurchaseResultStatus.success &&
+        transactionId?.trim().isNotEmpty == true &&
+        normalizedPaymentType == 'card';
+  }
+
   factory PurchaseResult.success({
     required String txRef,
     required String transactionId,

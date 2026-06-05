@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/payment_confirmation.dart';
 import '../domain/payment_intent.dart';
+import '../domain/saved_payment_method.dart';
 
 class PaymentRepository {
   PaymentRepository({required ApiClient apiClient}) : _apiClient = apiClient;
@@ -59,6 +60,55 @@ class PaymentRepository {
       }
 
       return PaymentConfirmation.fromJson(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<SavedPaymentMethod?> fetchSavedPaymentMethod() async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/payment/token',
+      );
+
+      final tokenPayload = response.data?['tokenPayload'];
+      if (tokenPayload == null) return null;
+      if (tokenPayload is! Map) {
+        throw const ApiException('Invalid saved payment method response');
+      }
+
+      return SavedPaymentMethod.fromJson(
+        Map<String, dynamic>.from(tokenPayload),
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<SavedPaymentMethod> savePaymentMethod({
+    required String transactionId,
+    bool isNewCard = true,
+  }) async {
+    final normalizedTransactionId = transactionId.trim();
+    if (normalizedTransactionId.isEmpty) {
+      throw const ApiException('Missing transaction ID');
+    }
+
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/payment/token',
+        data: {
+          'transactionID': normalizedTransactionId,
+          'isNewCard': isNewCard,
+        },
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing saved payment method data');
+      }
+
+      return SavedPaymentMethod.fromJson(data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

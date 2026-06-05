@@ -38,6 +38,7 @@ class MovieDetailsScreen extends ConsumerStatefulWidget {
 class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   bool _isTogglingWatchlist = false;
   bool _isTogglingFavorite = false;
+  bool _isSavingPaymentMethod = false;
 
   Movie get movie => widget.movie;
 
@@ -148,11 +149,39 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
         .purchaseMovie(context: context, movie: movie);
 
     if (!mounted) return;
-    _showPurchaseResult(result);
+    await _showPurchaseResult(result);
   }
 
-  void _showPurchaseResult(PurchaseResult result) {
+  Future<void> _showPurchaseResult(PurchaseResult result) async {
     _showMessage(result.message);
+    if (!result.canSavePaymentMethod) return;
+
+    final shouldSave = await _showSavePaymentMethodPrompt();
+    if (shouldSave != true || !mounted) return;
+
+    await _savePaymentMethod(result.transactionId!);
+  }
+
+  Future<void> _savePaymentMethod(String transactionId) async {
+    if (_isSavingPaymentMethod) return;
+
+    setState(() => _isSavingPaymentMethod = true);
+
+    try {
+      await ref
+          .read(savedPaymentMethodControllerProvider.notifier)
+          .saveFromTransaction(transactionId);
+
+      if (!mounted) return;
+      _showMessage('Card saved for faster checkout.');
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_messageFor(error));
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingPaymentMethod = false);
+      }
+    }
   }
 
   Future<bool?> _showPurchaseConfirmation() {
@@ -303,6 +332,263 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     );
   }
 
+  Future<bool?> _showSavePaymentMethodPrompt() {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+        final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+        final maxWidth = Responsive.isTablet(sheetContext)
+            ? 470.0
+            : double.infinity;
+
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, bottomInset + 14.h),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: screenHeight * 0.88),
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 16.h),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF0B1424),
+                          Color(0xFF09111F),
+                          Color(0xFF050A13),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      border: Border.all(color: AppColors.cardBorder),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.34),
+                          blurRadius: 30.r,
+                          offset: Offset(0, 18.h),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 42.w,
+                            height: 4.h,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.full,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 14.h),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 46.w,
+                              height: 46.w,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.md,
+                                ),
+                                color: AppColors.heroButton.withValues(
+                                  alpha: 0.13,
+                                ),
+                                border: Border.all(
+                                  color: AppColors.heroButton.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.lock_rounded,
+                                color: AppColors.primary,
+                                size: 22.sp,
+                              ),
+                            ),
+                            SizedBox(width: 12.w),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Save card for next time?',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18.sp,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 8.w,
+                                          vertical: 4.h,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(
+                                            0xFF22C55E,
+                                          ).withValues(alpha: 0.13),
+                                          borderRadius: BorderRadius.circular(
+                                            AppRadius.full,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(
+                                              0xFF22C55E,
+                                            ).withValues(alpha: 0.32),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'OPTIONAL',
+                                          style: TextStyle(
+                                            color: const Color(0xFF86EFAC),
+                                            fontSize: 8.5.sp,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 5.h),
+                                  Text(
+                                    'Pay faster on your next movie purchase.',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12.sp,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16.h),
+                        const _SavePaymentCardPreview(),
+                        SizedBox(height: 16.h),
+                        Text(
+                          'We save a secure payment token with Flutterwave. Your full card number and CVV are never stored in AfricanMovies.',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12.sp,
+                            height: 1.45,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 14.h),
+                        const _SavePaymentBenefits(),
+                        SizedBox(height: 12.h),
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 10.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.background.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(color: AppColors.cardBorder),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.info_outline_rounded,
+                                color: const Color(0xFFFBBF24),
+                                size: 17.sp,
+                              ),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                child: Text(
+                                  'Some cards may still ask for bank verification when needed.',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 11.sp,
+                                    height: 1.35,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppButton(
+                                text: 'Not Now',
+                                height: 46.h,
+                                fontSize: 13.sp,
+                                borderRadius: AppRadius.sm,
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.03,
+                                ),
+                                borderColor: AppColors.cardBorder,
+                                textColor: AppColors.textSecondary,
+                                onPressed: () =>
+                                    Navigator.pop(sheetContext, false),
+                              ),
+                            ),
+                            SizedBox(width: 10.w),
+                            Expanded(
+                              child: AppButton(
+                                text: 'Save Card',
+                                height: 46.h,
+                                fontSize: 13.sp,
+                                borderRadius: AppRadius.sm,
+                                backgroundColor: AppColors.heroButton,
+                                borderColor: AppColors.heroButton,
+                                icon: Icon(
+                                  Icons.verified_user_rounded,
+                                  color: Colors.white,
+                                  size: 17.sp,
+                                ),
+                                onPressed: () =>
+                                    Navigator.pop(sheetContext, true),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 10.h),
+                        Center(
+                          child: Text(
+                            'You can remove it later in Payment Details.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10.5.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _openTrailer(BuildContext context) {
     final trailerUrl = movie.trailerUrl.trim();
 
@@ -330,7 +616,7 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     final hasSession = ref.watch(authControllerProvider).asData?.value != null;
     final hasAccess = _hasMovieAccess(homeDataState);
     final purchaseState = ref.watch(purchaseControllerProvider);
-    final isPurchasing = purchaseState.isLoading;
+    final isPurchasing = purchaseState.isLoading || _isSavingPaymentMethod;
     final watchlistState = hasSession
         ? ref.watch(watchlistControllerProvider)
         : const AsyncData<List<Movie>>([]);
@@ -513,6 +799,182 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
           .take(12)
           .toList(),
       orElse: () => const <Movie>[],
+    );
+  }
+}
+
+class _SavePaymentCardPreview extends StatelessWidget {
+  const _SavePaymentCardPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 138.h,
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0B64C9), Color(0xFF08213F), Color(0xFF050A13)],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.heroButton.withValues(alpha: 0.22),
+            blurRadius: 24.r,
+            offset: Offset(0, 12.h),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 2.h,
+            right: 0,
+            child: Icon(
+              Icons.contactless_rounded,
+              color: Colors.white.withValues(alpha: 0.54),
+              size: 24.sp,
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 34.w,
+                    height: 24.h,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFFFD166), Color(0xFFB7791F)],
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Text(
+                    'SECURE TOKEN',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                'AfricanMovies Checkout',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.64),
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: 5.h),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '••••  ••••  ••••  CARD',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 19.sp,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              SizedBox(height: 7.h),
+              Row(
+                children: [
+                  Icon(
+                    Icons.shield_outlined,
+                    color: const Color(0xFF86EFAC),
+                    size: 15.sp,
+                  ),
+                  SizedBox(width: 5.w),
+                  Flexible(
+                    child: Text(
+                      'Full number and CVV stay private',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontSize: 10.5.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavePaymentBenefits extends StatelessWidget {
+  const _SavePaymentBenefits();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8.w,
+      runSpacing: 8.h,
+      children: const [
+        _SavePaymentBenefitPill(
+          icon: Icons.flash_on_rounded,
+          label: 'Faster checkout',
+        ),
+        _SavePaymentBenefitPill(
+          icon: Icons.verified_user_outlined,
+          label: 'Protected',
+        ),
+        _SavePaymentBenefitPill(
+          icon: Icons.lock_outline_rounded,
+          label: 'No CVV stored',
+        ),
+      ],
+    );
+  }
+}
+
+class _SavePaymentBenefitPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _SavePaymentBenefitPill({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: AppColors.background.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.primary, size: 15.sp),
+          SizedBox(width: 6.w),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
