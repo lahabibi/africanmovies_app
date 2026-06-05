@@ -7,15 +7,20 @@ import 'package:africanmovies/features/movie_details/widgets/movie_purchase_butt
 import 'package:africanmovies/features/movie_details/widgets/movie_small_action.dart';
 import 'package:africanmovies/features/movie_list/movie_list_screen.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
+import 'package:africanmovies/features/movies/domain/home_data.dart';
 import 'package:africanmovies/features/movies/data/movie_repository.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
+import 'package:africanmovies/features/payment/application/payment_providers.dart';
+import 'package:africanmovies/features/payment/domain/purchase_result.dart';
 import 'package:africanmovies/features/player/trailer_player_screen.dart';
 import 'package:africanmovies/features/watchlist/application/watchlist_controller.dart';
+import 'package:africanmovies/shared/widgets/app_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_radius.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/widgets/section_header.dart';
@@ -127,6 +132,177 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     return error.toString();
   }
 
+  Future<void> _handleWatchNow(bool hasAccess) async {
+    if (!_requireAuth(context, ref)) return;
+
+    if (hasAccess) {
+      _showMessage('Player will open here soon.');
+      return;
+    }
+
+    final shouldPurchase = await _showPurchaseConfirmation();
+    if (shouldPurchase != true || !mounted) return;
+
+    final result = await ref
+        .read(purchaseControllerProvider.notifier)
+        .purchaseMovie(context: context, movie: movie);
+
+    if (!mounted) return;
+    _showPurchaseResult(result);
+  }
+
+  void _showPurchaseResult(PurchaseResult result) {
+    _showMessage(result.message);
+  }
+
+  Future<bool?> _showPurchaseConfirmation() {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.58),
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, bottomInset + 14.h),
+          child: Container(
+            padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40.w,
+                      height: 40.w,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.heroButton.withValues(alpha: 0.14),
+                        border: Border.all(
+                          color: AppColors.heroButton.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.lock_open_rounded,
+                        color: AppColors.heroButton,
+                        size: 20.sp,
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Purchase movie',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          SizedBox(height: 3.h),
+                          Text(
+                            movie.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16.h),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14.w,
+                    vertical: 12.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.background.withValues(alpha: 0.52),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    border: Border.all(color: AppColors.cardBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Total',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        movie.priceLabel,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                Text(
+                  'After checkout, we will verify the payment before adding this movie to your library.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12.sp,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 18.h),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        text: 'Cancel',
+                        height: 44.h,
+                        fontSize: 13.sp,
+                        borderRadius: AppRadius.sm,
+                        backgroundColor: Colors.transparent,
+                        borderColor: AppColors.cardBorder,
+                        onPressed: () => Navigator.pop(sheetContext, false),
+                      ),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: AppButton(
+                        text: 'Confirm',
+                        height: 44.h,
+                        fontSize: 13.sp,
+                        borderRadius: AppRadius.sm,
+                        backgroundColor: AppColors.heroButton,
+                        borderColor: AppColors.heroButton,
+                        onPressed: () => Navigator.pop(sheetContext, true),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _openTrailer(BuildContext context) {
     final trailerUrl = movie.trailerUrl.trim();
 
@@ -149,8 +325,12 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = Responsive.horizontalPadding(context);
-    final relatedMovies = _relatedMovies(ref);
+    final homeDataState = ref.watch(homeDataProvider);
+    final relatedMovies = _relatedMovies(homeDataState);
     final hasSession = ref.watch(authControllerProvider).asData?.value != null;
+    final hasAccess = _hasMovieAccess(homeDataState);
+    final purchaseState = ref.watch(purchaseControllerProvider);
+    final isPurchasing = purchaseState.isLoading;
     final watchlistState = hasSession
         ? ref.watch(watchlistControllerProvider)
         : const AsyncData<List<Movie>>([]);
@@ -186,18 +366,21 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                           Expanded(
                             flex: 3,
                             child: MoviePurchaseButton(
-                              icon: movie.isFree
+                              icon: hasAccess
                                   ? Icons.play_arrow_rounded
                                   : Icons.lock_outline_rounded,
-                              title: movie.isFree
+                              title: hasAccess
                                   ? 'Watch Now'
                                   : 'Watch for ${movie.priceLabel}',
-                              subtitle: movie.isFree
-                                  ? 'Free title'
+                              subtitle: hasAccess
+                                  ? movie.isFree
+                                        ? 'Free title'
+                                        : 'In your library'
                                   : 'Add to your library',
-                              onTap: () {
-                                _requireAuth(context, ref);
-                              },
+                              isLoading: isPurchasing,
+                              onTap: isPurchasing
+                                  ? null
+                                  : () => _handleWatchNow(hasAccess),
                             ),
                           ),
                           SizedBox(width: 6.w),
@@ -303,23 +486,34 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     );
   }
 
-  List<Movie> _relatedMovies(WidgetRef ref) {
+  bool _hasMovieAccess(AsyncValue<HomeData> homeDataState) {
+    if (movie.isFree) return true;
+
+    return homeDataState.maybeWhen(
+      data: (data) {
+        return data.orders.any(
+          (order) => order.paid && order.movieId == movie.id,
+        );
+      },
+      orElse: () => false,
+    );
+  }
+
+  List<Movie> _relatedMovies(AsyncValue<HomeData> homeDataState) {
     final selectedGenre = movie.genre.trim().toLowerCase();
     if (selectedGenre.isEmpty) return const [];
 
-    return ref
-        .watch(homeDataProvider)
-        .maybeWhen(
-          data: (data) => data.movies
-              .where(
-                (relatedMovie) =>
-                    relatedMovie.id != movie.id &&
-                    relatedMovie.genre.trim().toLowerCase() == selectedGenre,
-              )
-              .take(12)
-              .toList(),
-          orElse: () => const <Movie>[],
-        );
+    return homeDataState.maybeWhen(
+      data: (data) => data.movies
+          .where(
+            (relatedMovie) =>
+                relatedMovie.id != movie.id &&
+                relatedMovie.genre.trim().toLowerCase() == selectedGenre,
+          )
+          .take(12)
+          .toList(),
+      orElse: () => const <Movie>[],
+    );
   }
 }
 

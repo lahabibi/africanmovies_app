@@ -1,0 +1,66 @@
+import 'package:dio/dio.dart';
+
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
+import '../domain/payment_confirmation.dart';
+import '../domain/payment_intent.dart';
+
+class PaymentRepository {
+  PaymentRepository({required ApiClient apiClient}) : _apiClient = apiClient;
+
+  final ApiClient _apiClient;
+
+  Future<PaymentIntent> initializeMoviePurchase(String movieId) async {
+    final normalizedMovieId = movieId.trim();
+    if (normalizedMovieId.isEmpty) {
+      throw const ApiException('Missing movie ID');
+    }
+
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/payment/mobile/initialize',
+        data: {'movieId': normalizedMovieId},
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing payment initialization data');
+      }
+
+      return PaymentIntent.fromJson(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<PaymentConfirmation> confirmFlutterwavePayment({
+    required String txRef,
+    required String transactionId,
+  }) async {
+    final normalizedTxRef = txRef.trim();
+    final normalizedTransactionId = transactionId.trim();
+
+    if (normalizedTxRef.isEmpty || normalizedTransactionId.isEmpty) {
+      throw const ApiException('Missing payment verification details');
+    }
+
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/payment/confirm',
+        data: {
+          'txRef': normalizedTxRef,
+          'transactionId': normalizedTransactionId,
+        },
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing payment verification data');
+      }
+
+      return PaymentConfirmation.fromJson(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+}
