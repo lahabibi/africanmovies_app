@@ -1,9 +1,11 @@
+
 import 'package:africanmovies/features/genres/widgets/category_circle_item.dart';
 import 'package:africanmovies/features/genres/widgets/genre_filter_bar.dart';
 import 'package:africanmovies/features/genres/widgets/genre_movie_grid_card.dart';
 import 'package:africanmovies/features/genres/widgets/genre_tab_selector.dart';
 import 'package:africanmovies/features/genres/widgets/language_section.dart';
 import 'package:africanmovies/features/movie_details/movie_details_screen.dart';
+import 'package:africanmovies/features/movie_list/movie_list_screen.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/movies/domain/home_data.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
@@ -36,14 +38,9 @@ class _CategoryItem {
 
 class _LanguageSectionData {
   final String language;
-  final int movieCount;
-  final List<LanguageMovieItem> movies;
+  final List<Movie> movies;
 
-  const _LanguageSectionData({
-    required this.language,
-    required this.movieCount,
-    required this.movies,
-  });
+  const _LanguageSectionData({required this.language, required this.movies});
 }
 
 class _GenresScreenState extends ConsumerState<GenresScreen> {
@@ -65,165 +62,6 @@ class _GenresScreenState extends ConsumerState<GenresScreen> {
       _selectedGenre = widget.selectedGenre;
     }
   }
-
-  static const _languageSections = [
-    _LanguageSectionData(
-      language: 'English',
-      movieCount: 128,
-      movies: [
-        LanguageMovieItem(
-          image: AppAssets.poster1,
-          year: '2023',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster2,
-          year: '2024',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster3,
-          year: '2023',
-          genre: 'Romance',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster4,
-          year: '2018',
-          genre: 'Comedy',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster5,
-          year: '2018',
-          genre: 'Comedy',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster6,
-          year: '2018',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-      ],
-    ),
-    _LanguageSectionData(
-      language: 'Yoruba',
-      movieCount: 96,
-      movies: [
-        LanguageMovieItem(
-          image: AppAssets.poster7,
-          year: '2024',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster8,
-          year: '2023',
-          genre: 'Romance',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster9,
-          year: '2024',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster10,
-          year: '2023',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster11,
-          year: '2023',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster12,
-          year: '2023',
-          genre: 'Comedy',
-          ageRating: '16+',
-        ),
-      ],
-    ),
-    _LanguageSectionData(
-      language: 'Igbo',
-      movieCount: 88,
-      movies: [
-        LanguageMovieItem(
-          image: AppAssets.poster13,
-          year: '2023',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster19,
-          year: '2024',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster15,
-          year: '2024',
-          genre: 'Romance',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster16,
-          year: '2024',
-          genre: 'Romance',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster17,
-          year: '2024',
-          genre: 'Romance',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster18,
-          year: '2024',
-          genre: 'Romance',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster14,
-          year: '2024',
-          genre: 'Romance',
-          ageRating: '16+',
-        ),
-      ],
-    ),
-    _LanguageSectionData(
-      language: 'Twi',
-      movieCount: 12,
-      movies: [
-        LanguageMovieItem(
-          image: AppAssets.poster20,
-          year: '2023',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster6,
-          year: '2024',
-          genre: 'Drama',
-          ageRating: '16+',
-        ),
-        LanguageMovieItem(
-          image: AppAssets.poster12,
-          year: '2024',
-          genre: 'Romance',
-          ageRating: '16+',
-        ),
-      ],
-    ),
-  ];
 
   Widget _buildGenresContent(HomeData data) {
     final genres = _genreItems(data);
@@ -249,6 +87,26 @@ class _GenresScreenState extends ConsumerState<GenresScreen> {
         setState(() => _selectedGenre = genres[index].label);
       },
       onMovieTap: _openMovieDetails,
+    );
+  }
+
+  Widget _buildLanguagesContent(HomeData data) {
+    final sections = _languageSections(data);
+
+    if (sections.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.only(top: 40.h),
+        child: const EmptyState(
+          title: 'No languages yet',
+          subtitle: 'Languages will appear here when movies are available.',
+        ),
+      );
+    }
+
+    return _LanguagesTabContent(
+      sections: sections,
+      onMovieTap: _openMovieDetails,
+      onSeeAllTap: _openLanguageMovieList,
     );
   }
 
@@ -285,10 +143,60 @@ class _GenresScreenState extends ConsumerState<GenresScreen> {
     return 0;
   }
 
+  List<_LanguageSectionData> _languageSections(HomeData data) {
+    final groups = <String, List<Movie>>{};
+    final labels = <String, String>{};
+
+    for (final movie in data.movies) {
+      final language = movie.language.trim();
+      if (language.isEmpty) continue;
+
+      final key = language.toLowerCase();
+      labels.putIfAbsent(key, () => language);
+      groups.putIfAbsent(key, () => []).add(movie);
+    }
+
+    final sections = groups.entries.map((entry) {
+      final movies = [...entry.value]..sort(_compareMoviesByUploadDate);
+
+      return _LanguageSectionData(
+        language: labels[entry.key] ?? entry.key,
+        movies: movies,
+      );
+    }).toList();
+
+    sections.sort(
+      (left, right) =>
+          left.language.toLowerCase().compareTo(right.language.toLowerCase()),
+    );
+
+    return sections;
+  }
+
+  int _compareMoviesByUploadDate(Movie left, Movie right) {
+    final leftDate = left.uploadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final rightDate =
+        right.uploadDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+    return rightDate.compareTo(leftDate);
+  }
+
   void _openMovieDetails(Movie movie) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => MovieDetailsScreen(movie: movie)),
+    );
+  }
+
+  void _openLanguageMovieList(_LanguageSectionData section) {
+    if (section.movies.isEmpty) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            MovieListScreen(title: section.language, movies: section.movies),
+      ),
     );
   }
 
@@ -326,7 +234,14 @@ class _GenresScreenState extends ConsumerState<GenresScreen> {
                       loading: _GenresLoadingView.new,
                     )
                   else
-                    const _LanguagesTabContent(sections: _languageSections),
+                    homeData.when(
+                      data: _buildLanguagesContent,
+                      error: (error, _) => _GenresErrorView(
+                        message: error.toString(),
+                        onRetry: () => ref.invalidate(homeDataProvider),
+                      ),
+                      loading: _GenresLoadingView.new,
+                    ),
                 ],
               ),
             ),
@@ -478,8 +393,14 @@ class _GenresErrorView extends StatelessWidget {
 
 class _LanguagesTabContent extends StatelessWidget {
   final List<_LanguageSectionData> sections;
+  final ValueChanged<Movie> onMovieTap;
+  final ValueChanged<_LanguageSectionData> onSeeAllTap;
 
-  const _LanguagesTabContent({required this.sections});
+  const _LanguagesTabContent({
+    required this.sections,
+    required this.onMovieTap,
+    required this.onSeeAllTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -493,8 +414,9 @@ class _LanguagesTabContent extends StatelessWidget {
           ),
           child: LanguageSection(
             language: section.language,
-            movieCount: section.movieCount,
             movies: section.movies,
+            onMovieTap: onMovieTap,
+            onSeeAllTap: () => onSeeAllTap(section),
           ),
         );
       }),

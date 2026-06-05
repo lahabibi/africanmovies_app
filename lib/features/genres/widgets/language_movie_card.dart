@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
+import '../../../shared/widgets/app_image.dart';
 
 class LanguageMovieCard extends StatelessWidget {
   final String image;
@@ -35,15 +36,9 @@ class LanguageMovieCard extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(AppRadius.sm),
-                border: Border.all(
-                  color: AppColors.cardBorder,
-                  width: 0.8,
-                ),
+                border: Border.all(color: AppColors.cardBorder, width: 0.8),
               ),
-              child: Image.asset(
-                image,
-                fit: BoxFit.cover,
-              ),
+              child: AppImage(source: image),
             ),
 
             SizedBox(height: 6.h),
@@ -72,9 +67,7 @@ class LanguageMovieCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(4.r),
-                      border: Border.all(
-                        color: AppColors.cardBorder,
-                      ),
+                      border: Border.all(color: AppColors.cardBorder),
                     ),
                     child: Text(
                       ageRating,
@@ -87,7 +80,7 @@ class LanguageMovieCard extends StatelessWidget {
                   ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),

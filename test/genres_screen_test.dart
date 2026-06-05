@@ -68,12 +68,70 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('renders languages from movie data', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          homeDataProvider.overrideWith(
+            (_) async => HomeData(
+              movies: [
+                _movie(
+                  id: 'movie-1',
+                  title: 'English Movie',
+                  genre: 'Drama',
+                  language: 'English',
+                ),
+                _movie(
+                  id: 'movie-2',
+                  title: 'Wolof Movie',
+                  genre: 'Drama',
+                  language: 'Wolof',
+                ),
+                _movie(
+                  id: 'movie-3',
+                  title: 'Another Wolof Movie',
+                  genre: 'Comedy',
+                  language: 'Wolof',
+                ),
+              ],
+              genres: const [],
+              orders: const [],
+            ),
+          ),
+        ],
+        child: ScreenUtilInit(
+          designSize: const Size(390, 844),
+          builder: (_, _) => MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: const GenresScreen(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    await tester.tap(find.text('Languages'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('English'), findsOneWidget);
+    expect(find.text('Wolof'), findsOneWidget);
+    expect(find.text('1 Movie'), findsOneWidget);
+    expect(find.text('2 Movies'), findsOneWidget);
+  });
 }
 
 Movie _movie({
   required String id,
   required String title,
   required String genre,
+  String language = 'Wolof',
 }) {
   return Movie(
     id: id,
@@ -88,7 +146,7 @@ Movie _movie({
     actors: const ['Actor One'],
     countryName: 'Senegal',
     isoCode: 'SN',
-    language: 'Wolof',
+    language: language,
     duration: 75,
     status: 'Published',
     releaseYear: '2026',

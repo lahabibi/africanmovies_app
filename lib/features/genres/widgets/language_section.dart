@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../movies/domain/movie.dart';
 import '../../../shared/widgets/section_header.dart';
 import 'language_movie_card.dart';
 
 class LanguageSection extends StatelessWidget {
   final String language;
-  final int movieCount;
-  final List<LanguageMovieItem> movies;
+  final List<Movie> movies;
+  final VoidCallback? onSeeAllTap;
+  final ValueChanged<Movie>? onMovieTap;
 
   const LanguageSection({
     super.key,
     required this.language,
-    required this.movieCount,
     required this.movies,
+    this.onSeeAllTap,
+    this.onMovieTap,
   });
 
   @override
@@ -21,9 +24,13 @@ class LanguageSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: language, actionText: 'See All »'),
+        SectionHeader(
+          title: language,
+          actionText: 'See All »',
+          onActionTap: onSeeAllTap,
+        ),
         Text(
-          '$movieCount Movies',
+          _countLabel(movies.length),
           style: TextStyle(fontSize: 10.sp, color: const Color(0xFF9CA3AF)),
         ),
         SizedBox(height: 8.h),
@@ -37,10 +44,11 @@ class LanguageSection extends StatelessWidget {
               final movie = movies[index];
 
               return LanguageMovieCard(
-                image: movie.image,
-                year: movie.year,
+                image: movie.displayPosterUrl,
+                year: movie.yearLabel,
                 genre: movie.genre,
-                ageRating: movie.ageRating,
+                ageRating: movie.ageRatingLabel,
+                onTap: () => onMovieTap?.call(movie),
               );
             },
           ),
@@ -48,18 +56,8 @@ class LanguageSection extends StatelessWidget {
       ],
     );
   }
-}
 
-class LanguageMovieItem {
-  final String image;
-  final String year;
-  final String genre;
-  final String ageRating;
-
-  const LanguageMovieItem({
-    required this.image,
-    required this.year,
-    required this.genre,
-    required this.ageRating,
-  });
+  String _countLabel(int count) {
+    return count == 1 ? '1 Movie' : '$count Movies';
+  }
 }
