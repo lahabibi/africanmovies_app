@@ -39,7 +39,7 @@ class LanguageSection extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: movies.length,
-            separatorBuilder: (_, _) => SizedBox(width: 6.w),
+            separatorBuilder: (context, index) => SizedBox(width: 6.w),
             itemBuilder: (_, index) {
               final movie = movies[index];
 

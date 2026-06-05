@@ -125,6 +125,68 @@ void main() {
     expect(find.text('1 Movie'), findsOneWidget);
     expect(find.text('2 Movies'), findsOneWidget);
   });
+
+  testWidgets('updates genre sort option', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          homeDataProvider.overrideWith(
+            (_) async => HomeData(
+              movies: [
+                _movie(
+                  id: 'movie-1',
+                  title: 'Short Drama',
+                  genre: 'Drama',
+                  duration: 45,
+                ),
+                _movie(
+                  id: 'movie-2',
+                  title: 'Long Drama',
+                  genre: 'Drama',
+                  duration: 120,
+                ),
+              ],
+              genres: const [
+                MovieGenre(
+                  id: 'genre-1',
+                  name: 'Drama',
+                  description: '',
+                  pictureUrl: '',
+                  iconUrl: '',
+                  positionOnDashboard: 1,
+                ),
+              ],
+              orders: const [],
+            ),
+          ),
+        ],
+        child: ScreenUtilInit(
+          designSize: const Size(390, 844),
+          builder: (_, _) => MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: const GenresScreen(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.text('Title'), findsOneWidget);
+
+    await tester.tap(find.text('Sort by'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Duration'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Duration'), findsOneWidget);
+  });
 }
 
 Movie _movie({
@@ -132,6 +194,7 @@ Movie _movie({
   required String title,
   required String genre,
   String language = 'Wolof',
+  double duration = 75,
 }) {
   return Movie(
     id: id,
@@ -147,7 +210,7 @@ Movie _movie({
     countryName: 'Senegal',
     isoCode: 'SN',
     language: language,
-    duration: 75,
+    duration: duration,
     status: 'Published',
     releaseYear: '2026',
     releaseType: 'New Release',
