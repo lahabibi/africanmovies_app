@@ -29,6 +29,7 @@ class AppScaffold extends StatelessWidget {
       appBar: appBar,
       bottomNavigationBar: bottomNavigationBar,
       body: Stack(
+        fit: StackFit.expand,
         children: [
           /// Top blue glow
           Positioned(

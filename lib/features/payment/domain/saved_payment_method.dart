@@ -37,6 +37,27 @@ class SavedPaymentMethod {
     return value.toUpperCase();
   }
 
+  String get displayEmail {
+    final value = email.trim();
+    if (value.isEmpty) return 'Not available';
+
+    return value;
+  }
+
+  String get displayExpiry {
+    final value = expiry.trim();
+    if (value.isEmpty) return 'N/A';
+
+    return value;
+  }
+
+  String get displayCountry {
+    final value = country.trim();
+    if (value.isEmpty) return 'N/A';
+
+    return value.toUpperCase();
+  }
+
   String get maskedNumber {
     if (last4Digits.isEmpty) return '••••  ••••  ••••';
 
