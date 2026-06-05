@@ -6,6 +6,8 @@ import '../../../core/storage/json_cache_store.dart';
 import '../domain/home_data.dart';
 import '../domain/movie.dart';
 
+enum WatchlistAction { added, removed }
+
 class MovieRepository {
   MovieRepository({
     required ApiClient apiClient,
@@ -92,6 +94,47 @@ class MovieRepository {
     }
   }
 
+  Future<List<Movie>> fetchWatchlistMovies() async {
+    try {
+      final response = await _apiClient.get<List<dynamic>>(
+        '/movies/my/watchlist',
+      );
+
+      final data = response.data;
+      if (data is! List) {
+        throw const ApiException('Missing watchlist movies');
+      }
+
+      return _watchlistMoviesFromJsonList(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<WatchlistAction> toggleWatchlist(String movieId) async {
+    final normalizedMovieId = movieId.trim();
+    if (normalizedMovieId.isEmpty) {
+      throw const ApiException('Missing movie ID');
+    }
+
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/movies/watchlist',
+        data: {'movieId': normalizedMovieId},
+      );
+
+      final action = response.data?['action']?.toString().toUpperCase();
+
+      return switch (action) {
+        'ADDED' => WatchlistAction.added,
+        'REMOVED' => WatchlistAction.removed,
+        _ => throw const ApiException('Invalid watchlist response'),
+      };
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   HomeData? _homeDataFromCache(CachedJson? cached) {
     final data = cached?.data;
     if (data is! Map) return null;
@@ -111,6 +154,29 @@ class MovieRepository {
         .whereType<Map>()
         .map((movie) => Movie.fromJson(Map<String, dynamic>.from(movie)))
         .toList();
+  }
+
+  List<Movie> _watchlistMoviesFromJsonList(List<dynamic> data) {
+    return data
+        .whereType<Map>()
+        .map((item) => _movieFromWatchlistItem(Map<String, dynamic>.from(item)))
+        .whereType<Movie>()
+        .where((movie) => movie.id.isNotEmpty)
+        .toList();
+  }
+
+  Movie? _movieFromWatchlistItem(Map<String, dynamic> item) {
+    final rawMovie = item['movieId'];
+
+    if (rawMovie is Map) {
+      return Movie.fromJson(Map<String, dynamic>.from(rawMovie));
+    }
+
+    if (item.containsKey('title')) {
+      return Movie.fromJson(item);
+    }
+
+    return null;
   }
 
   String _searchCacheKey(String query) {

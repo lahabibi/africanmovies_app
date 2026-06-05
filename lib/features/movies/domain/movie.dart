@@ -24,6 +24,8 @@ class Movie {
   final String? videoUrl;
   final String uploadedBy;
   final DateTime? uploadDate;
+  final bool isFavorite;
+  final bool inWatchlist;
 
   const Movie({
     required this.id,
@@ -51,6 +53,8 @@ class Movie {
     this.videoUrl,
     required this.uploadedBy,
     this.uploadDate,
+    this.isFavorite = false,
+    this.inWatchlist = false,
   });
 
   factory Movie.fromJson(Map<String, dynamic> json) {
@@ -85,6 +89,8 @@ class Movie {
       videoUrl: json['movieVideoURL']?.toString(),
       uploadedBy: json['uploadedBy']?.toString() ?? '',
       uploadDate: DateTime.tryParse(json['uploadDate']?.toString() ?? ''),
+      isFavorite: json['isFavorite'] == true,
+      inWatchlist: json['inWatchlist'] == true,
     );
   }
 
@@ -161,6 +167,8 @@ class Movie {
       'movieVideoURL': videoUrl,
       'uploadedBy': uploadedBy,
       'uploadDate': uploadDate?.toIso8601String(),
+      'isFavorite': isFavorite,
+      'inWatchlist': inWatchlist,
     };
   }
 

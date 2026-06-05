@@ -6,21 +6,33 @@ import 'package:africanmovies/features/movie_details/widgets/movie_purchase_butt
 import 'package:africanmovies/features/movie_details/widgets/movie_small_action.dart';
 import 'package:africanmovies/features/movie_list/movie_list_screen.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
+import 'package:africanmovies/features/movies/data/movie_repository.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
 import 'package:africanmovies/features/player/trailer_player_screen.dart';
+import 'package:africanmovies/features/watchlist/application/watchlist_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/section_movie_card.dart';
 
-class MovieDetailsScreen extends ConsumerWidget {
+class MovieDetailsScreen extends ConsumerStatefulWidget {
   final Movie movie;
 
   const MovieDetailsScreen({super.key, required this.movie});
+
+  @override
+  ConsumerState<MovieDetailsScreen> createState() => _MovieDetailsScreenState();
+}
+
+class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
+  bool _isTogglingWatchlist = false;
+
+  Movie get movie => widget.movie;
 
   bool _requireAuth(BuildContext context, WidgetRef ref) {
     final hasSession = ref.read(authControllerProvider).asData?.value != null;
@@ -45,6 +57,46 @@ class MovieDetailsScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _toggleWatchlist() async {
+    if (_isTogglingWatchlist) return;
+    if (!_requireAuth(context, ref)) return;
+
+    setState(() => _isTogglingWatchlist = true);
+
+    try {
+      final action = await ref
+          .read(watchlistControllerProvider.notifier)
+          .toggle(movie);
+
+      if (!mounted) return;
+
+      _showMessage(
+        action == WatchlistAction.added
+            ? 'Added to watchlist'
+            : 'Removed from watchlist',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_messageFor(error));
+    } finally {
+      if (mounted) {
+        setState(() => _isTogglingWatchlist = false);
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _messageFor(Object error) {
+    if (error is ApiException) return error.message;
+
+    return error.toString();
+  }
+
   void _openTrailer(BuildContext context) {
     final trailerUrl = movie.trailerUrl.trim();
 
@@ -65,9 +117,14 @@ class MovieDetailsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final horizontalPadding = Responsive.horizontalPadding(context);
     final relatedMovies = _relatedMovies(ref);
+    final hasSession = ref.watch(authControllerProvider).asData?.value != null;
+    final watchlistState = hasSession
+        ? ref.watch(watchlistControllerProvider)
+        : const AsyncData<List<Movie>>([]);
+    final isInWatchlist = hasSession && _isMovieInWatchlist(watchlistState);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -117,11 +174,13 @@ class MovieDetailsScreen extends ConsumerWidget {
                           ),
                           SizedBox(width: 6.w),
                           MovieSmallAction(
-                            icon: Icons.bookmark_add_outlined,
-                            label: 'watchlist',
-                            onTap: () {
-                              _requireAuth(context, ref);
-                            },
+                            icon: isInWatchlist
+                                ? Icons.bookmark_rounded
+                                : Icons.bookmark_add_outlined,
+                            label: isInWatchlist ? 'Saved' : 'Watchlist',
+                            isActive: isInWatchlist,
+                            isLoading: _isTogglingWatchlist,
+                            onTap: _toggleWatchlist,
                           ),
                           SizedBox(width: 6.w),
                           MovieSmallAction(
@@ -189,6 +248,14 @@ class MovieDetailsScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  bool _isMovieInWatchlist(AsyncValue<List<Movie>> watchlistState) {
+    return watchlistState.when(
+      data: (movies) => movies.any((movie) => movie.id == widget.movie.id),
+      loading: () => widget.movie.inWatchlist,
+      error: (_, _) => widget.movie.inWatchlist,
     );
   }
 

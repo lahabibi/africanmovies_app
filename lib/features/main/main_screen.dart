@@ -231,7 +231,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
         onGenresRequested: _openGenresTab,
       ),
       GenresScreen(selectedGenre: _selectedGenre),
-      const WatchlistScreen(),
+      WatchlistScreen(onBrowseMovies: () => _selectTab(0)),
       const MyLibraryScreen(),
       _profileScreen(),
     ];

@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
 import '../../../shared/widgets/app_context_menu.dart';
+import '../../../shared/widgets/app_image.dart';
 
 class WatchlistMovieCard extends StatelessWidget {
   final String image;
@@ -15,6 +16,7 @@ class WatchlistMovieCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onMoreTap;
   final VoidCallback? onPlayTap;
+  final bool isRemoving;
 
   const WatchlistMovieCard({
     super.key,
@@ -27,6 +29,7 @@ class WatchlistMovieCard extends StatelessWidget {
     this.onTap,
     this.onMoreTap,
     this.onPlayTap,
+    this.isRemoving = false,
   });
 
   @override
@@ -47,7 +50,7 @@ class WatchlistMovieCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Positioned.fill(child: Image.asset(image, fit: BoxFit.cover)),
+                  Positioned.fill(child: AppImage(source: image)),
 
                   Positioned.fill(
                     child: DecoratedBox(
@@ -70,24 +73,35 @@ class WatchlistMovieCard extends StatelessWidget {
                     child: AppContextMenu(
                       items: [
                         AppContextMenuItem(
-                          icon: Icons.play_arrow_rounded,
-                          title: 'Watch Now',
-                          subtitle: '\$0.99',
-                          onTap: onMoreTap,
+                          icon: Icons.bookmark_remove_outlined,
+                          title: isRemoving
+                              ? 'Removing...'
+                              : 'Remove from Watchlist',
+                          onTap: isRemoving ? null : onMoreTap,
                         ),
                       ],
                       child: Container(
                         width: 26.w,
                         height: 26.w,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.black.withValues(alpha: 0.42),
                         ),
-                        child: Icon(
-                          Icons.more_vert_rounded,
-                          color: Colors.white,
-                          size: 16.sp,
-                        ),
+                        child: isRemoving
+                            ? SizedBox(
+                                width: 12.w,
+                                height: 12.w,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 1.8,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Icon(
+                                Icons.more_vert_rounded,
+                                color: Colors.white,
+                                size: 16.sp,
+                              ),
                       ),
                     ),
                   ),
@@ -100,6 +114,7 @@ class WatchlistMovieCard extends StatelessWidget {
                       child: Container(
                         width: 22.w,
                         height: 22.w,
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.black.withValues(alpha: 0.42),
