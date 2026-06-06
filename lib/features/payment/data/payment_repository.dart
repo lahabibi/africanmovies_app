@@ -113,4 +113,12 @@ class PaymentRepository {
       throw ApiException.fromDio(error);
     }
   }
+
+  Future<void> removeSavedPaymentMethod() async {
+    try {
+      await _apiClient.delete<Map<String, dynamic>>('/payment/token');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
 }

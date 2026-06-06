@@ -53,6 +53,19 @@ class SavedPaymentMethodController extends AsyncNotifier<SavedPaymentMethod?> {
       Error.throwWithStackTrace(error, stackTrace);
     }
   }
+
+  Future<void> removeSavedPaymentMethod() async {
+    final previousPaymentMethod = state.asData?.value;
+    state = const AsyncLoading();
+
+    try {
+      await ref.read(paymentRepositoryProvider).removeSavedPaymentMethod();
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      state = AsyncData(previousPaymentMethod);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
 }
 
 class PurchaseController extends AsyncNotifier<PurchaseResult?> {

@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   AppConfig._();
 
-  static const localNetworkDevApiBaseUrl = 'http://172.20.10.3:3200/api';
+  static const localNetworkDevApiBaseUrl = 'http://172.20.10.8:3200/api';
   static const androidEmulatorDevApiBaseUrl = 'http://10.0.2.2:3200/api';
 
   static const _apiBaseUrlOverride = String.fromEnvironment(

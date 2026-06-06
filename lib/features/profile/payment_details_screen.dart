@@ -5,11 +5,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/utils/responsive.dart';
 import '../../features/payment/application/payment_providers.dart';
 import '../../features/payment/domain/saved_payment_method.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/app_screen_header.dart';
+import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/empty_state.dart';
 
 class PaymentDetailsScreen extends ConsumerWidget {
@@ -73,6 +75,8 @@ class PaymentDetailsScreen extends ConsumerWidget {
 
                           return _SavedPaymentMethodView(
                             paymentMethod: paymentMethod,
+                            onRemoveCard: () =>
+                                _confirmAndRemoveCard(context, ref),
                           );
                         },
                         loading: () => const _PaymentDetailsLoading(),
@@ -102,12 +106,170 @@ class PaymentDetailsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _confirmAndRemoveCard(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final shouldRemove = await _showRemoveCardConfirmation(context);
+    if (shouldRemove != true || !context.mounted) return;
+
+    try {
+      await ref
+          .read(savedPaymentMethodControllerProvider.notifier)
+          .removeSavedPaymentMethod();
+
+      if (!context.mounted) return;
+      _showMessage(context, 'Saved card removed.');
+    } catch (error) {
+      if (!context.mounted) return;
+      _showMessage(context, _messageFor(error));
+    }
+  }
+
+  Future<bool?> _showRemoveCardConfirmation(BuildContext context) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+        final maxWidth = Responsive.isTablet(sheetContext)
+            ? 470.0
+            : double.infinity;
+
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, bottomInset + 14.h),
+              child: Container(
+                padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  border: Border.all(color: AppColors.cardBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.34),
+                      blurRadius: 30.r,
+                      offset: Offset(0, 18.h),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 46.w,
+                          height: 46.w,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.danger.withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: AppColors.danger.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.delete_outline_rounded,
+                            color: AppColors.danger,
+                            size: 23.sp,
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Text(
+                            'Remove saved card?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 14.h),
+                    Text(
+                      'This removes the saved payment token from your account. Your purchased movies will stay in your library, but future purchases will ask for card details again.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 18.h),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            text: 'Cancel',
+                            height: 46.h,
+                            fontSize: 13.sp,
+                            borderRadius: AppRadius.sm,
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.03,
+                            ),
+                            borderColor: AppColors.cardBorder,
+                            textColor: AppColors.textSecondary,
+                            onPressed: () => Navigator.pop(sheetContext, false),
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: AppButton(
+                            text: 'Remove',
+                            height: 46.h,
+                            fontSize: 13.sp,
+                            borderRadius: AppRadius.sm,
+                            backgroundColor: AppColors.danger,
+                            borderColor: AppColors.danger,
+                            icon: Icon(
+                              Icons.delete_outline_rounded,
+                              color: Colors.white,
+                              size: 17.sp,
+                            ),
+                            onPressed: () => Navigator.pop(sheetContext, true),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _messageFor(Object error) {
+    if (error is ApiException) return error.message;
+
+    return error.toString();
+  }
 }
 
 class _SavedPaymentMethodView extends StatelessWidget {
   final SavedPaymentMethod paymentMethod;
+  final VoidCallback onRemoveCard;
 
-  const _SavedPaymentMethodView({required this.paymentMethod});
+  const _SavedPaymentMethodView({
+    required this.paymentMethod,
+    required this.onRemoveCard,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +320,7 @@ class _SavedPaymentMethodView extends StatelessWidget {
 
         SizedBox(height: 18.h),
 
-        const _RemoveCardButton(),
+        _RemoveCardButton(onTap: onRemoveCard),
       ],
     );
   }
@@ -581,36 +743,45 @@ class _SecurePaymentNotice extends StatelessWidget {
 }
 
 class _RemoveCardButton extends StatelessWidget {
-  const _RemoveCardButton();
+  final VoidCallback onTap;
+
+  const _RemoveCardButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 54.h,
-      decoration: BoxDecoration(
-        color: AppColors.card.withValues(alpha: 0.65),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.delete_outline_rounded,
-            color: AppColors.danger,
-            size: 22.sp,
+        child: Container(
+          width: double.infinity,
+          height: 54.h,
+          decoration: BoxDecoration(
+            color: AppColors.card.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(color: AppColors.cardBorder),
           ),
-          SizedBox(width: 8.w),
-          Text(
-            'Remove Card',
-            style: TextStyle(
-              fontSize: 17.sp,
-              fontWeight: FontWeight.w800,
-              color: AppColors.danger,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.danger,
+                size: 22.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                'Remove Card',
+                style: TextStyle(
+                  fontSize: 17.sp,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.danger,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
