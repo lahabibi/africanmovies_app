@@ -25,4 +25,10 @@ abstract class PaymentGateway {
     required BuildContext context,
     required PaymentIntent intent,
   });
+
+  Future<GatewayPaymentResult> authorizeRedirect({
+    required BuildContext context,
+    required String redirectUrl,
+    required String fallbackTxRef,
+  });
 }

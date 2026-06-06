@@ -59,6 +59,52 @@ class FlutterwavePaymentGateway implements PaymentGateway {
         );
   }
 
+  @override
+  Future<GatewayPaymentResult> authorizeRedirect({
+    required BuildContext context,
+    required String redirectUrl,
+    required String fallbackTxRef,
+  }) async {
+    final normalizedRedirectUrl = redirectUrl.trim();
+    final normalizedTxRef = fallbackTxRef.trim();
+
+    if (normalizedRedirectUrl.isEmpty || normalizedTxRef.isEmpty) {
+      return GatewayPaymentResult(
+        status: GatewayPaymentStatus.failed,
+        txRef: normalizedTxRef,
+        message: 'Payment authorization details were missing.',
+      );
+    }
+
+    if (!context.mounted) {
+      return GatewayPaymentResult(
+        status: GatewayPaymentStatus.cancelled,
+        txRef: normalizedTxRef,
+      );
+    }
+
+    final result = await Navigator.push<GatewayPaymentResult>(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, _, _) => FlutterwaveCheckoutScreen(
+          checkoutUrl: normalizedRedirectUrl,
+          fallbackTxRef: normalizedTxRef,
+        ),
+        transitionDuration: const Duration(milliseconds: 220),
+        reverseTransitionDuration: const Duration(milliseconds: 180),
+        transitionsBuilder: (_, animation, _, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    return result ??
+        GatewayPaymentResult(
+          status: GatewayPaymentStatus.cancelled,
+          txRef: normalizedTxRef,
+        );
+  }
+
   Future<String> _createCheckoutUrl(PaymentIntent intent) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(

@@ -151,15 +151,37 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     if (purchaseChoice == null || !mounted) return;
 
     if (purchaseChoice == _PurchasePaymentChoice.savedCard) {
-      _showMessage('Saved card checkout is next. Use another card for now.');
+      await _purchaseWithSavedCard();
       return;
     }
 
+    await _purchaseWithNewCard();
+  }
+
+  Future<void> _purchaseWithNewCard() async {
     final result = await ref
         .read(purchaseControllerProvider.notifier)
         .purchaseMovie(context: context, movie: movie);
 
     if (!mounted) return;
+    await _showPurchaseResult(result);
+  }
+
+  Future<void> _purchaseWithSavedCard() async {
+    final result = await ref
+        .read(purchaseControllerProvider.notifier)
+        .purchaseMovieWithSavedCard(context: context, movie: movie);
+
+    if (!mounted) return;
+
+    if (result.status == PurchaseResultStatus.failed) {
+      final useAnotherCard = await _showUseAnotherCardPrompt(result.message);
+      if (useAnotherCard == true && mounted) {
+        await _purchaseWithNewCard();
+      }
+      return;
+    }
+
     await _showPurchaseResult(result);
   }
 
@@ -193,6 +215,121 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
         setState(() => _isSavingPaymentMethod = false);
       }
     }
+  }
+
+  Future<bool?> _showUseAnotherCardPrompt(String message) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+        final maxWidth = Responsive.isTablet(sheetContext)
+            ? 470.0
+            : double.infinity;
+
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, bottomInset + 14.h),
+              child: Container(
+                padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  border: Border.all(color: AppColors.cardBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.34),
+                      blurRadius: 30.r,
+                      offset: Offset(0, 18.h),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44.w,
+                          height: 44.w,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.warning.withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: AppColors.warning.withValues(alpha: 0.36),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.credit_card_off_rounded,
+                            color: AppColors.warning,
+                            size: 22.sp,
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Text(
+                            'Saved card could not be used',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17.sp,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 13.h),
+                    Text(
+                      message,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 18.h),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            text: 'Cancel',
+                            height: 46.h,
+                            fontSize: 13.sp,
+                            borderRadius: AppRadius.sm,
+                            backgroundColor: Colors.transparent,
+                            borderColor: AppColors.cardBorder,
+                            textColor: AppColors.textSecondary,
+                            onPressed: () => Navigator.pop(sheetContext, false),
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: AppButton(
+                            text: 'Use Another Card',
+                            height: 46.h,
+                            fontSize: 13.sp,
+                            borderRadius: AppRadius.sm,
+                            backgroundColor: AppColors.heroButton,
+                            borderColor: AppColors.heroButton,
+                            onPressed: () => Navigator.pop(sheetContext, true),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<SavedPaymentMethod?> _readSavedPaymentMethod() async {

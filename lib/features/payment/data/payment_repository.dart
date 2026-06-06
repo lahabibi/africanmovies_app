@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/payment_confirmation.dart';
 import '../domain/payment_intent.dart';
+import '../domain/saved_card_charge_result.dart';
 import '../domain/saved_payment_method.dart';
 
 class PaymentRepository {
@@ -117,6 +118,29 @@ class PaymentRepository {
   Future<void> removeSavedPaymentMethod() async {
     try {
       await _apiClient.delete<Map<String, dynamic>>('/payment/token');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<SavedCardChargeResult> chargeSavedCard(String movieId) async {
+    final normalizedMovieId = movieId.trim();
+    if (normalizedMovieId.isEmpty) {
+      throw const ApiException('Missing movie ID');
+    }
+
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/payment/mobile/token-charge',
+        data: {'movieId': normalizedMovieId},
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing saved card payment response');
+      }
+
+      return SavedCardChargeResult.fromJson(data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
