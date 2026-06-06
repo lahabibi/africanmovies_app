@@ -12,6 +12,7 @@ import 'package:africanmovies/features/movies/data/movie_repository.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
 import 'package:africanmovies/features/payment/application/payment_providers.dart';
 import 'package:africanmovies/features/payment/domain/purchase_result.dart';
+import 'package:africanmovies/features/payment/domain/saved_payment_method.dart';
 import 'package:africanmovies/features/player/trailer_player_screen.dart';
 import 'package:africanmovies/features/watchlist/application/watchlist_controller.dart';
 import 'package:africanmovies/shared/widgets/app_button.dart';
@@ -34,6 +35,8 @@ class MovieDetailsScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<MovieDetailsScreen> createState() => _MovieDetailsScreenState();
 }
+
+enum _PurchasePaymentChoice { savedCard, newCard }
 
 class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   bool _isTogglingWatchlist = false;
@@ -141,8 +144,16 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
       return;
     }
 
-    final shouldPurchase = await _showPurchaseConfirmation();
-    if (shouldPurchase != true || !mounted) return;
+    final savedPaymentMethod = await _readSavedPaymentMethod();
+    if (!mounted) return;
+
+    final purchaseChoice = await _showPurchaseConfirmation(savedPaymentMethod);
+    if (purchaseChoice == null || !mounted) return;
+
+    if (purchaseChoice == _PurchasePaymentChoice.savedCard) {
+      _showMessage('Saved card checkout is next. Use another card for now.');
+      return;
+    }
 
     final result = await ref
         .read(purchaseControllerProvider.notifier)
@@ -184,13 +195,29 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     }
   }
 
-  Future<bool?> _showPurchaseConfirmation() {
-    return showModalBottomSheet<bool>(
+  Future<SavedPaymentMethod?> _readSavedPaymentMethod() async {
+    try {
+      final paymentMethod = await ref.read(
+        savedPaymentMethodControllerProvider.future,
+      );
+      if (paymentMethod == null || paymentMethod.isEmpty) return null;
+
+      return paymentMethod;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<_PurchasePaymentChoice?> _showPurchaseConfirmation(
+    SavedPaymentMethod? savedPaymentMethod,
+  ) {
+    return showModalBottomSheet<_PurchasePaymentChoice>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.58),
       builder: (sheetContext) {
         final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+        final hasSavedCard = savedPaymentMethod != null;
 
         return Padding(
           padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, bottomInset + 14.h),
@@ -287,8 +314,14 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                   ),
                 ),
                 SizedBox(height: 12.h),
+                if (hasSavedCard) ...[
+                  _SavedCardPurchaseOption(paymentMethod: savedPaymentMethod),
+                  SizedBox(height: 12.h),
+                ],
                 Text(
-                  'After checkout, we will verify the payment before adding this movie to your library.',
+                  hasSavedCard
+                      ? 'Choose how you want to complete this purchase.'
+                      : 'After checkout, we will verify the payment before adding this movie to your library.',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12.sp,
@@ -297,33 +330,90 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                   ),
                 ),
                 SizedBox(height: 18.h),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        text: 'Cancel',
-                        height: 44.h,
-                        fontSize: 13.sp,
-                        borderRadius: AppRadius.sm,
-                        backgroundColor: Colors.transparent,
-                        borderColor: AppColors.cardBorder,
-                        onPressed: () => Navigator.pop(sheetContext, false),
+                if (hasSavedCard) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          text: 'Use Another Card',
+                          height: 44.h,
+                          fontSize: 13.sp,
+                          borderRadius: AppRadius.sm,
+                          backgroundColor: Colors.transparent,
+                          borderColor: AppColors.cardBorder,
+                          onPressed: () => Navigator.pop(
+                            sheetContext,
+                            _PurchasePaymentChoice.newCard,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: AppButton(
+                          text: 'Use Saved Card',
+                          height: 44.h,
+                          fontSize: 13.sp,
+                          borderRadius: AppRadius.sm,
+                          backgroundColor: AppColors.heroButton,
+                          borderColor: AppColors.heroButton,
+                          icon: Icon(
+                            Icons.credit_card_rounded,
+                            color: Colors.white,
+                            size: 17.sp,
+                          ),
+                          onPressed: () => Navigator.pop(
+                            sheetContext,
+                            _PurchasePaymentChoice.savedCard,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 10.h),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(sheetContext),
+                    child: Center(
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: AppButton(
-                        text: 'Confirm',
-                        height: 44.h,
-                        fontSize: 13.sp,
-                        borderRadius: AppRadius.sm,
-                        backgroundColor: AppColors.heroButton,
-                        borderColor: AppColors.heroButton,
-                        onPressed: () => Navigator.pop(sheetContext, true),
+                  ),
+                ] else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          text: 'Cancel',
+                          height: 44.h,
+                          fontSize: 13.sp,
+                          borderRadius: AppRadius.sm,
+                          backgroundColor: Colors.transparent,
+                          borderColor: AppColors.cardBorder,
+                          onPressed: () => Navigator.pop(sheetContext),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: AppButton(
+                          text: 'Confirm',
+                          height: 44.h,
+                          fontSize: 13.sp,
+                          borderRadius: AppRadius.sm,
+                          backgroundColor: AppColors.heroButton,
+                          borderColor: AppColors.heroButton,
+                          onPressed: () => Navigator.pop(
+                            sheetContext,
+                            _PurchasePaymentChoice.newCard,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -799,6 +889,82 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
           .take(12)
           .toList(),
       orElse: () => const <Movie>[],
+    );
+  }
+}
+
+class _SavedCardPurchaseOption extends StatelessWidget {
+  final SavedPaymentMethod paymentMethod;
+
+  const _SavedCardPurchaseOption({required this.paymentMethod});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: AppColors.heroButton.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.heroButton.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38.w,
+            height: 38.w,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              color: AppColors.background.withValues(alpha: 0.45),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Icon(
+              Icons.credit_card_rounded,
+              color: AppColors.heroButton,
+              size: 20.sp,
+            ),
+          ),
+          SizedBox(width: 11.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  paymentMethod.displayCardType,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  paymentMethod.maskedNumber,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 10.w),
+          Container(
+            width: 24.w,
+            height: 24.w,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.heroButton,
+            ),
+            child: Icon(Icons.check_rounded, color: Colors.white, size: 16.sp),
+          ),
+        ],
+      ),
     );
   }
 }
