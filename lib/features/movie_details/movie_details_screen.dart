@@ -151,23 +151,30 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     if (purchaseChoice == null || !mounted) return;
 
     if (purchaseChoice == _PurchasePaymentChoice.savedCard) {
-      await _purchaseWithSavedCard();
+      await _purchaseWithSavedCard(savedPaymentMethod);
       return;
     }
 
-    await _purchaseWithNewCard();
+    await _purchaseWithNewCard(existingSavedPaymentMethod: savedPaymentMethod);
   }
 
-  Future<void> _purchaseWithNewCard() async {
+  Future<void> _purchaseWithNewCard({
+    SavedPaymentMethod? existingSavedPaymentMethod,
+  }) async {
     final result = await ref
         .read(purchaseControllerProvider.notifier)
         .purchaseMovie(context: context, movie: movie);
 
     if (!mounted) return;
-    await _showPurchaseResult(result);
+    await _showPurchaseResult(
+      result,
+      existingSavedPaymentMethod: existingSavedPaymentMethod,
+    );
   }
 
-  Future<void> _purchaseWithSavedCard() async {
+  Future<void> _purchaseWithSavedCard(
+    SavedPaymentMethod? existingSavedPaymentMethod,
+  ) async {
     final result = await ref
         .read(purchaseControllerProvider.notifier)
         .purchaseMovieWithSavedCard(context: context, movie: movie);
@@ -177,7 +184,9 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     if (result.status == PurchaseResultStatus.failed) {
       final useAnotherCard = await _showUseAnotherCardPrompt(result.message);
       if (useAnotherCard == true && mounted) {
-        await _purchaseWithNewCard();
+        await _purchaseWithNewCard(
+          existingSavedPaymentMethod: existingSavedPaymentMethod,
+        );
       }
       return;
     }
@@ -185,17 +194,38 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     await _showPurchaseResult(result);
   }
 
-  Future<void> _showPurchaseResult(PurchaseResult result) async {
+  Future<void> _showPurchaseResult(
+    PurchaseResult result, {
+    SavedPaymentMethod? existingSavedPaymentMethod,
+  }) async {
     _showMessage(result.message);
     if (!result.canSavePaymentMethod) return;
 
-    final shouldSave = await _showSavePaymentMethodPrompt();
+    final existingPaymentMethod = existingSavedPaymentMethod;
+    var hasExistingSavedCard = false;
+    final bool? shouldSave;
+
+    if (existingPaymentMethod != null && !existingPaymentMethod.isEmpty) {
+      hasExistingSavedCard = true;
+      shouldSave = await _showReplacePaymentMethodPrompt(existingPaymentMethod);
+    } else {
+      shouldSave = await _showSavePaymentMethodPrompt();
+    }
+
     if (shouldSave != true || !mounted) return;
 
-    await _savePaymentMethod(result.transactionId!);
+    await _savePaymentMethod(
+      result.transactionId!,
+      successMessage: hasExistingSavedCard
+          ? 'Saved card replaced for future purchases.'
+          : 'Card saved for faster checkout.',
+    );
   }
 
-  Future<void> _savePaymentMethod(String transactionId) async {
+  Future<void> _savePaymentMethod(
+    String transactionId, {
+    required String successMessage,
+  }) async {
     if (_isSavingPaymentMethod) return;
 
     setState(() => _isSavingPaymentMethod = true);
@@ -206,7 +236,7 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
           .saveFromTransaction(transactionId);
 
       if (!mounted) return;
-      _showMessage('Card saved for faster checkout.');
+      _showMessage(successMessage);
     } catch (error) {
       if (!mounted) return;
       _showMessage(_messageFor(error));
@@ -816,6 +846,245 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     );
   }
 
+  Future<bool?> _showReplacePaymentMethodPrompt(
+    SavedPaymentMethod currentPaymentMethod,
+  ) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+        final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+        final maxWidth = Responsive.isTablet(sheetContext)
+            ? 470.0
+            : double.infinity;
+
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, bottomInset + 14.h),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: screenHeight * 0.88),
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 16.h),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF0A1A2F),
+                          Color(0xFF07111F),
+                          Color(0xFF030812),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      border: Border.all(
+                        color: AppColors.heroButton.withValues(alpha: 0.24),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.heroButton.withValues(alpha: 0.16),
+                          blurRadius: 34.r,
+                          offset: Offset(0, 14.h),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.42),
+                          blurRadius: 36.r,
+                          offset: Offset(0, 22.h),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 42.w,
+                            height: 4.h,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.full,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
+                        Center(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 10.w,
+                              vertical: 5.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF22C55E,
+                              ).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.full,
+                              ),
+                              border: Border.all(
+                                color: const Color(
+                                  0xFF22C55E,
+                                ).withValues(alpha: 0.32),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  color: const Color(0xFF86EFAC),
+                                  size: 14.sp,
+                                ),
+                                SizedBox(width: 5.w),
+                                Text(
+                                  'PURCHASE COMPLETE',
+                                  style: TextStyle(
+                                    color: const Color(0xFF86EFAC),
+                                    fontSize: 9.sp,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
+                        SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            'Replace saved card?',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22.sp,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 7.h),
+                        SizedBox(
+                          width: double.infinity,
+                          child: Text(
+                            'Keep your current card, or save the card you just used for faster checkout next time.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12.sp,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 18.h),
+                        _ReplacePaymentMethodPreview(
+                          paymentMethod: currentPaymentMethod,
+                        ),
+                        SizedBox(height: 16.h),
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 10.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF22C55E,
+                            ).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(
+                              color: const Color(
+                                0xFF22C55E,
+                              ).withValues(alpha: 0.24),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.shield_outlined,
+                                color: const Color(0xFF86EFAC),
+                                size: 17.sp,
+                              ),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                child: Text(
+                                  'Nothing changes unless you approve it. Your movie access is already secured.',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.78),
+                                    fontSize: 11.sp,
+                                    height: 1.35,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppButton(
+                                text: 'Keep Current',
+                                height: 46.h,
+                                fontSize: 13.sp,
+                                borderRadius: AppRadius.sm,
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.06,
+                                ),
+                                borderColor: Colors.white.withValues(
+                                  alpha: 0.12,
+                                ),
+                                textColor: Colors.white.withValues(alpha: 0.78),
+                                icon: Icon(
+                                  Icons.credit_score_rounded,
+                                  color: Colors.white.withValues(alpha: 0.72),
+                                  size: 17.sp,
+                                ),
+                                onPressed: () =>
+                                    Navigator.pop(sheetContext, false),
+                              ),
+                            ),
+                            SizedBox(width: 10.w),
+                            Expanded(
+                              child: AppButton(
+                                text: 'Replace Card',
+                                height: 46.h,
+                                fontSize: 13.sp,
+                                borderRadius: AppRadius.sm,
+                                backgroundColor: AppColors.heroButton,
+                                borderColor: AppColors.heroButton,
+                                icon: Icon(
+                                  Icons.auto_awesome_rounded,
+                                  color: Colors.white,
+                                  size: 17.sp,
+                                ),
+                                onPressed: () =>
+                                    Navigator.pop(sheetContext, true),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _openTrailer(BuildContext context) {
     final trailerUrl = movie.trailerUrl.trim();
 
@@ -1099,6 +1368,203 @@ class _SavedCardPurchaseOption extends StatelessWidget {
               color: AppColors.heroButton,
             ),
             child: Icon(Icons.check_rounded, color: Colors.white, size: 16.sp),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplacePaymentMethodPreview extends StatelessWidget {
+  final SavedPaymentMethod paymentMethod;
+
+  const _ReplacePaymentMethodPreview({required this.paymentMethod});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth * 0.72;
+
+        return SizedBox(
+          height: 172.h,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                width: cardWidth,
+                child: _PaymentSwapCard(
+                  eyebrow: 'CURRENT SAVED',
+                  title: paymentMethod.displayCardType,
+                  subtitle: paymentMethod.maskedNumber,
+                  icon: Icons.credit_card_rounded,
+                  accentColor: AppColors.textSecondary,
+                  gradient: const [
+                    Color(0xFF101B2B),
+                    Color(0xFF0A1220),
+                    Color(0xFF050A13),
+                  ],
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                width: cardWidth,
+                child: _PaymentSwapCard(
+                  eyebrow: 'CARD JUST USED',
+                  title: 'New checkout card',
+                  subtitle: 'Available after you approve',
+                  icon: Icons.verified_user_rounded,
+                  accentColor: const Color(0xFF86EFAC),
+                  gradient: const [
+                    Color(0xFF006FE6),
+                    Color(0xFF073B73),
+                    Color(0xFF06111F),
+                  ],
+                ),
+              ),
+              Positioned.fill(
+                child: Center(
+                  child: Container(
+                    width: 46.w,
+                    height: 46.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.background,
+                      border: Border.all(
+                        color: AppColors.heroButton.withValues(alpha: 0.5),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.heroButton.withValues(alpha: 0.22),
+                          blurRadius: 18.r,
+                          offset: Offset(0, 6.h),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.arrow_downward_rounded,
+                      color: AppColors.primary,
+                      size: 24.sp,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PaymentSwapCard extends StatelessWidget {
+  final String eyebrow;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accentColor;
+  final List<Color> gradient;
+
+  const _PaymentSwapCard({
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accentColor,
+    required this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 108.h,
+      padding: EdgeInsets.fromLTRB(13.w, 12.h, 13.w, 11.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.18),
+            blurRadius: 18.r,
+            offset: Offset(0, 9.h),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Icon(
+              Icons.contactless_rounded,
+              color: Colors.white.withValues(alpha: 0.36),
+              size: 21.sp,
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28.w,
+                    height: 22.h,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                      gradient: LinearGradient(
+                        colors: [
+                          accentColor.withValues(alpha: 0.95),
+                          accentColor.withValues(alpha: 0.34),
+                        ],
+                      ),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 13.sp),
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      eyebrow,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.66),
+                        fontSize: 8.5.sp,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              SizedBox(height: 5.h),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.66),
+                  fontSize: 10.5.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ],
       ),
