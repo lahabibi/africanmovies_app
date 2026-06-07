@@ -38,6 +38,8 @@ class MovieDetailsScreen extends ConsumerStatefulWidget {
 
 enum _PurchasePaymentChoice { savedCard, newCard }
 
+enum _SavePaymentMethodChoice { save, notNow, dontAskAgain }
+
 class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   bool _isTogglingWatchlist = false;
   bool _isTogglingFavorite = false;
@@ -209,7 +211,15 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
       hasExistingSavedCard = true;
       shouldSave = await _showReplacePaymentMethodPrompt(existingPaymentMethod);
     } else {
-      shouldSave = await _showSavePaymentMethodPrompt();
+      if (await _isSaveCardPromptHidden()) return;
+
+      final saveChoice = await _showSavePaymentMethodPrompt();
+      if (saveChoice == _SavePaymentMethodChoice.dontAskAgain) {
+        await _hideSaveCardPrompt();
+        return;
+      }
+
+      shouldSave = saveChoice == _SavePaymentMethodChoice.save;
     }
 
     if (shouldSave != true || !mounted) return;
@@ -244,6 +254,25 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
       if (mounted) {
         setState(() => _isSavingPaymentMethod = false);
       }
+    }
+  }
+
+  Future<bool> _isSaveCardPromptHidden() async {
+    try {
+      return await ref
+          .read(paymentPreferencesStoreProvider)
+          .isSaveCardPromptHidden();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _hideSaveCardPrompt() async {
+    try {
+      await ref.read(paymentPreferencesStoreProvider).hideSaveCardPrompt();
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage('Could not update card prompt preference.');
     }
   }
 
@@ -589,8 +618,10 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     );
   }
 
-  Future<bool?> _showSavePaymentMethodPrompt() {
-    return showModalBottomSheet<bool>(
+  Future<_SavePaymentMethodChoice?> _showSavePaymentMethodPrompt() {
+    var hideFuturePrompts = false;
+
+    return showModalBottomSheet<_SavePaymentMethodChoice>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.68),
@@ -602,245 +633,340 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
             ? 470.0
             : double.infinity;
 
-        return Align(
-          alignment: Alignment.bottomCenter,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, bottomInset + 14.h),
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Align(
+              alignment: Alignment.bottomCenter,
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: screenHeight * 0.88),
-                child: SingleChildScrollView(
-                  child: Container(
-                    padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 16.h),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF0B1424),
-                          Color(0xFF09111F),
-                          Color(0xFF050A13),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(AppRadius.xl),
-                      border: Border.all(color: AppColors.cardBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.34),
-                          blurRadius: 30.r,
-                          offset: Offset(0, 18.h),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Center(
-                          child: Container(
-                            width: 42.w,
-                            height: 4.h,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.full,
-                              ),
-                            ),
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    14.w,
+                    0,
+                    14.w,
+                    bottomInset + 14.h,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: screenHeight * 0.88),
+                    child: SingleChildScrollView(
+                      child: Container(
+                        padding: EdgeInsets.fromLTRB(18.w, 12.h, 18.w, 16.h),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF0B1424),
+                              Color(0xFF09111F),
+                              Color(0xFF050A13),
+                            ],
                           ),
+                          borderRadius: BorderRadius.circular(AppRadius.xl),
+                          border: Border.all(color: AppColors.cardBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.34),
+                              blurRadius: 30.r,
+                              offset: Offset(0, 18.h),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 14.h),
-                        Row(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 46.w,
-                              height: 46.w,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.md,
-                                ),
-                                color: AppColors.heroButton.withValues(
-                                  alpha: 0.13,
-                                ),
-                                border: Border.all(
-                                  color: AppColors.heroButton.withValues(
-                                    alpha: 0.4,
+                            Center(
+                              child: Container(
+                                width: 42.w,
+                                height: 4.h,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.full,
                                   ),
                                 ),
                               ),
-                              child: Icon(
-                                Icons.lock_rounded,
-                                color: AppColors.primary,
-                                size: 22.sp,
-                              ),
                             ),
-                            SizedBox(width: 12.w),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Save card for next time?',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18.sp,
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
+                            SizedBox(height: 14.h),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 46.w,
+                                  height: 46.w,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.md,
+                                    ),
+                                    color: AppColors.heroButton.withValues(
+                                      alpha: 0.13,
+                                    ),
+                                    border: Border.all(
+                                      color: AppColors.heroButton.withValues(
+                                        alpha: 0.4,
                                       ),
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 8.w,
-                                          vertical: 4.h,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF22C55E,
-                                          ).withValues(alpha: 0.13),
-                                          borderRadius: BorderRadius.circular(
-                                            AppRadius.full,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.lock_rounded,
+                                    color: AppColors.primary,
+                                    size: 22.sp,
+                                  ),
+                                ),
+                                SizedBox(width: 12.w),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Save card for next time?',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 18.sp,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
                                           ),
-                                          border: Border.all(
-                                            color: const Color(
-                                              0xFF22C55E,
-                                            ).withValues(alpha: 0.32),
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 8.w,
+                                              vertical: 4.h,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(
+                                                0xFF22C55E,
+                                              ).withValues(alpha: 0.13),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    AppRadius.full,
+                                                  ),
+                                              border: Border.all(
+                                                color: const Color(
+                                                  0xFF22C55E,
+                                                ).withValues(alpha: 0.32),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'OPTIONAL',
+                                              style: TextStyle(
+                                                color: const Color(0xFF86EFAC),
+                                                fontSize: 8.5.sp,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        child: Text(
-                                          'OPTIONAL',
-                                          style: TextStyle(
-                                            color: const Color(0xFF86EFAC),
-                                            fontSize: 8.5.sp,
-                                            fontWeight: FontWeight.w900,
-                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 5.h),
+                                      Text(
+                                        'Pay faster on your next movie purchase.',
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12.sp,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  SizedBox(height: 5.h),
-                                  Text(
-                                    'Pay faster on your next movie purchase.',
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12.sp,
-                                      fontWeight: FontWeight.w600,
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 16.h),
+                            const _SavePaymentCardPreview(),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'We save a secure payment token with Flutterwave. Your full card number and CVV are never stored in AfricanMovies.',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12.sp,
+                                height: 1.45,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: 14.h),
+                            const _SavePaymentBenefits(),
+                            SizedBox(height: 12.h),
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.w,
+                                vertical: 10.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.background.withValues(
+                                  alpha: 0.5,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.sm,
+                                ),
+                                border: Border.all(color: AppColors.cardBorder),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    color: const Color(0xFFFBBF24),
+                                    size: 17.sp,
+                                  ),
+                                  SizedBox(width: 8.w),
+                                  Expanded(
+                                    child: Text(
+                                      'Some cards may still ask for bank verification when needed.',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11.sp,
+                                        height: 1.35,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                        ),
-                        SizedBox(height: 16.h),
-                        const _SavePaymentCardPreview(),
-                        SizedBox(height: 16.h),
-                        Text(
-                          'We save a secure payment token with Flutterwave. Your full card number and CVV are never stored in AfricanMovies.',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12.sp,
-                            height: 1.45,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 14.h),
-                        const _SavePaymentBenefits(),
-                        SizedBox(height: 12.h),
-                        Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12.w,
-                            vertical: 10.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.background.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                            border: Border.all(color: AppColors.cardBorder),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.info_outline_rounded,
-                                color: const Color(0xFFFBBF24),
-                                size: 17.sp,
+                            SizedBox(height: 12.h),
+                            Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12.w,
+                                vertical: 10.h,
                               ),
-                              SizedBox(width: 8.w),
-                              Expanded(
-                                child: Text(
-                                  'Some cards may still ask for bank verification when needed.',
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 11.sp,
-                                    height: 1.35,
-                                    fontWeight: FontWeight.w500,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.03),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.sm,
+                                ),
+                                border: Border.all(
+                                  color: hideFuturePrompts
+                                      ? AppColors.heroButton.withValues(
+                                          alpha: 0.34,
+                                        )
+                                      : Colors.white.withValues(alpha: 0.08),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.notifications_off_outlined,
+                                          color: hideFuturePrompts
+                                              ? AppColors.primary
+                                              : AppColors.textSecondary,
+                                          size: 16.sp,
+                                        ),
+                                        SizedBox(width: 8.w),
+                                        Expanded(
+                                          child: Text(
+                                            "Don't ask again on this device",
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: hideFuturePrompts
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.9,
+                                                    )
+                                                  : AppColors.textSecondary,
+                                              fontSize: 11.sp,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Transform.scale(
+                                    scale: 0.82,
+                                    child: Switch.adaptive(
+                                      value: hideFuturePrompts,
+                                      activeThumbColor: AppColors.heroButton,
+                                      activeTrackColor: AppColors.heroButton
+                                          .withValues(alpha: 0.32),
+                                      inactiveThumbColor:
+                                          AppColors.textSecondary,
+                                      inactiveTrackColor: Colors.white
+                                          .withValues(alpha: 0.12),
+                                      onChanged: (value) {
+                                        setSheetState(
+                                          () => hideFuturePrompts = value,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 16.h),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: AppButton(
+                                    text: 'Not Now',
+                                    height: 46.h,
+                                    fontSize: 13.sp,
+                                    borderRadius: AppRadius.sm,
+                                    backgroundColor: Colors.white.withValues(
+                                      alpha: 0.03,
+                                    ),
+                                    borderColor: AppColors.cardBorder,
+                                    textColor: AppColors.textSecondary,
+                                    onPressed: () => Navigator.pop(
+                                      sheetContext,
+                                      hideFuturePrompts
+                                          ? _SavePaymentMethodChoice
+                                                .dontAskAgain
+                                          : _SavePaymentMethodChoice.notNow,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: 16.h),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: AppButton(
-                                text: 'Not Now',
-                                height: 46.h,
-                                fontSize: 13.sp,
-                                borderRadius: AppRadius.sm,
-                                backgroundColor: Colors.white.withValues(
-                                  alpha: 0.03,
+                                SizedBox(width: 10.w),
+                                Expanded(
+                                  child: AppButton(
+                                    text: 'Save Card',
+                                    height: 46.h,
+                                    fontSize: 13.sp,
+                                    borderRadius: AppRadius.sm,
+                                    backgroundColor: AppColors.heroButton,
+                                    borderColor: AppColors.heroButton,
+                                    icon: Icon(
+                                      Icons.verified_user_rounded,
+                                      color: Colors.white,
+                                      size: 17.sp,
+                                    ),
+                                    onPressed: () => Navigator.pop(
+                                      sheetContext,
+                                      _SavePaymentMethodChoice.save,
+                                    ),
+                                  ),
                                 ),
-                                borderColor: AppColors.cardBorder,
-                                textColor: AppColors.textSecondary,
-                                onPressed: () =>
-                                    Navigator.pop(sheetContext, false),
-                              ),
+                              ],
                             ),
-                            SizedBox(width: 10.w),
-                            Expanded(
-                              child: AppButton(
-                                text: 'Save Card',
-                                height: 46.h,
-                                fontSize: 13.sp,
-                                borderRadius: AppRadius.sm,
-                                backgroundColor: AppColors.heroButton,
-                                borderColor: AppColors.heroButton,
-                                icon: Icon(
-                                  Icons.verified_user_rounded,
-                                  color: Colors.white,
-                                  size: 17.sp,
+                            SizedBox(height: 10.h),
+                            Center(
+                              child: Text(
+                                'You can remove it later in Payment Details.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10.5.sp,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                onPressed: () =>
-                                    Navigator.pop(sheetContext, true),
                               ),
                             ),
                           ],
                         ),
-                        SizedBox(height: 10.h),
-                        Center(
-                          child: Text(
-                            'You can remove it later in Payment Details.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 10.5.sp,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );

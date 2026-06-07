@@ -8,6 +8,7 @@ import '../../movies/domain/movie.dart';
 import '../../notifications/application/notification_providers.dart';
 import '../data/flutterwave_payment_gateway.dart';
 import '../data/payment_repository.dart';
+import '../data/payment_preferences_store.dart';
 import '../domain/payment_gateway.dart';
 import '../domain/payment_intent.dart';
 import '../domain/purchase_result.dart';
@@ -15,6 +16,12 @@ import '../domain/saved_payment_method.dart';
 
 final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
   return PaymentRepository(apiClient: ref.watch(apiClientProvider));
+});
+
+final paymentPreferencesStoreProvider = Provider<PaymentPreferencesStore>((
+  ref,
+) {
+  return PaymentPreferencesStore();
 });
 
 final paymentGatewayProvider = Provider<PaymentGateway>((ref) {
