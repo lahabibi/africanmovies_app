@@ -13,6 +13,8 @@ import 'package:africanmovies/features/movies/domain/movie.dart';
 import 'package:africanmovies/features/payment/application/payment_providers.dart';
 import 'package:africanmovies/features/payment/domain/purchase_result.dart';
 import 'package:africanmovies/features/payment/domain/saved_payment_method.dart';
+import 'package:africanmovies/features/player/application/player_providers.dart';
+import 'package:africanmovies/features/player/movie_player_screen.dart';
 import 'package:africanmovies/features/player/trailer_player_screen.dart';
 import 'package:africanmovies/features/watchlist/application/watchlist_controller.dart';
 import 'package:africanmovies/shared/widgets/app_button.dart';
@@ -44,6 +46,7 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   bool _isTogglingWatchlist = false;
   bool _isTogglingFavorite = false;
   bool _isSavingPaymentMethod = false;
+  bool _isOpeningPlayer = false;
 
   Movie get movie => widget.movie;
 
@@ -142,10 +145,14 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     if (!_requireAuth(context, ref)) return;
 
     if (hasAccess) {
-      _showMessage('Player will open here soon.');
+      await _openMoviePlayer();
       return;
     }
 
+    await _startPurchaseFlow();
+  }
+
+  Future<void> _startPurchaseFlow() async {
     final savedPaymentMethod = await _readSavedPaymentMethod();
     if (!mounted) return;
 
@@ -158,6 +165,53 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     }
 
     await _purchaseWithNewCard(existingSavedPaymentMethod: savedPaymentMethod);
+  }
+
+  Future<void> _openMoviePlayer() async {
+    if (_isOpeningPlayer) return;
+
+    setState(() => _isOpeningPlayer = true);
+
+    var shouldOfferPurchase = false;
+
+    try {
+      final playback = await ref
+          .read(playerRepositoryProvider)
+          .requestMoviePlayback(movie.id);
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MoviePlayerScreen(playback: playback),
+        ),
+      );
+
+      if (!mounted) return;
+      ref.invalidate(homeDataProvider);
+    } catch (error) {
+      if (!mounted) return;
+
+      _showMessage(_messageFor(error));
+      shouldOfferPurchase =
+          error is ApiException &&
+          error.statusCode == 403 &&
+          !movie.isFree &&
+          !_isPurchaseInProgress;
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningPlayer = false);
+      }
+    }
+
+    if (shouldOfferPurchase && mounted) {
+      await _startPurchaseFlow();
+    }
+  }
+
+  bool get _isPurchaseInProgress {
+    return ref.read(purchaseControllerProvider).isLoading;
   }
 
   Future<void> _purchaseWithNewCard({
@@ -1238,7 +1292,8 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     final hasSession = ref.watch(authControllerProvider).asData?.value != null;
     final hasAccess = _hasMovieAccess(homeDataState);
     final purchaseState = ref.watch(purchaseControllerProvider);
-    final isPurchasing = purchaseState.isLoading || _isSavingPaymentMethod;
+    final isPurchasing =
+        purchaseState.isLoading || _isSavingPaymentMethod || _isOpeningPlayer;
     final watchlistState = hasSession
         ? ref.watch(watchlistControllerProvider)
         : const AsyncData<List<Movie>>([]);

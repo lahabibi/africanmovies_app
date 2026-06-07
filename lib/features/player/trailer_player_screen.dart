@@ -14,11 +14,22 @@ import 'video_url_resolver.dart';
 class TrailerPlayerScreen extends StatefulWidget {
   final String title;
   final String videoUrl;
+  final String badgeLabel;
+  final String loadingLabel;
+  final String unavailableTitle;
+  final String fallbackErrorMessage;
+  final Duration initialPosition;
 
   const TrailerPlayerScreen({
     super.key,
     required this.title,
     required this.videoUrl,
+    this.badgeLabel = 'TRAILER',
+    this.loadingLabel = 'Preparing your trailer...',
+    this.unavailableTitle = 'Trailer unavailable',
+    this.fallbackErrorMessage =
+        'Could not start this trailer. Please try again.',
+    this.initialPosition = Duration.zero,
   });
 
   @override
@@ -98,12 +109,15 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
       await _prepareAudioOutput();
       await _player.open(Media(playableUrl));
       await _selectDefaultAudioTrack();
+      if (widget.initialPosition > Duration.zero) {
+        await _player.seek(widget.initialPosition);
+      }
       if (_hasPlayableState) _markMediaPlayable();
       _scheduleControlsHide();
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _fatalErrorMessage = 'Could not start this trailer. Please try again.';
+        _fatalErrorMessage = widget.fallbackErrorMessage;
         _isOpening = false;
         _controlsVisible = true;
       });
@@ -338,7 +352,9 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
         value.contains('401') ||
         value.contains('forbidden') ||
         value.contains('unauthorized')) {
-      return 'This trailer is not available right now.';
+      return widget.unavailableTitle == 'Trailer unavailable'
+          ? 'This trailer is not available right now.'
+          : 'This movie is not available right now.';
     }
 
     if (value.contains('network') ||
@@ -347,7 +363,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
       return 'Check your connection and try again.';
     }
 
-    return 'Could not start this trailer. Please try again.';
+    return widget.fallbackErrorMessage;
   }
 
   @override
@@ -376,9 +392,12 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
                   opacity: _controlsVisible ? 1 : 0,
                   child: _TrailerControlsOverlay(
                     title: widget.title,
+                    badgeLabel: widget.badgeLabel,
                     player: _player,
                     isLoading: _isOpening && !_hasPlayableMedia,
                     errorMessage: _fatalErrorMessage,
+                    loadingLabel: widget.loadingLabel,
+                    unavailableTitle: widget.unavailableTitle,
                     onBack: _handleBack,
                     onPlayPause: _togglePlayPause,
                     onSkipBackward: _skipBackward10,
@@ -400,9 +419,12 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
 
 class _TrailerControlsOverlay extends StatelessWidget {
   final String title;
+  final String badgeLabel;
   final Player player;
   final bool isLoading;
   final String? errorMessage;
+  final String loadingLabel;
+  final String unavailableTitle;
   final VoidCallback onBack;
   final VoidCallback onPlayPause;
   final VoidCallback onSkipBackward;
@@ -414,9 +436,12 @@ class _TrailerControlsOverlay extends StatelessWidget {
 
   const _TrailerControlsOverlay({
     required this.title,
+    required this.badgeLabel,
     required this.player,
     required this.isLoading,
     required this.errorMessage,
+    required this.loadingLabel,
+    required this.unavailableTitle,
     required this.onBack,
     required this.onPlayPause,
     required this.onSkipBackward,
@@ -456,6 +481,7 @@ class _TrailerControlsOverlay extends StatelessWidget {
               children: [
                 _TopControls(
                   title: title,
+                  badgeLabel: badgeLabel,
                   metrics: metrics,
                   onBack: onBack,
                   onOrientationToggle: onOrientationToggle,
@@ -466,6 +492,8 @@ class _TrailerControlsOverlay extends StatelessWidget {
                   metrics: metrics,
                   isLoading: isLoading,
                   errorMessage: errorMessage,
+                  loadingLabel: loadingLabel,
+                  unavailableTitle: unavailableTitle,
                   onPlayPause: onPlayPause,
                   onSkipBackward: onSkipBackward,
                   onSkipForward: onSkipForward,
@@ -494,12 +522,14 @@ class _TrailerControlsOverlay extends StatelessWidget {
 
 class _TopControls extends StatelessWidget {
   final String title;
+  final String badgeLabel;
   final _PlayerControlMetrics metrics;
   final VoidCallback onBack;
   final VoidCallback onOrientationToggle;
 
   const _TopControls({
     required this.title,
+    required this.badgeLabel,
     required this.metrics,
     required this.onBack,
     required this.onOrientationToggle,
@@ -534,7 +564,7 @@ class _TopControls extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'TRAILER',
+                  badgeLabel,
                   style: TextStyle(
                     fontSize: metrics.badgeFontSize,
                     fontWeight: FontWeight.w800,
@@ -577,6 +607,8 @@ class _CenterControls extends StatelessWidget {
   final _PlayerControlMetrics metrics;
   final bool isLoading;
   final String? errorMessage;
+  final String loadingLabel;
+  final String unavailableTitle;
   final VoidCallback onPlayPause;
   final VoidCallback onSkipBackward;
   final VoidCallback onSkipForward;
@@ -586,6 +618,8 @@ class _CenterControls extends StatelessWidget {
     required this.metrics,
     required this.isLoading,
     required this.errorMessage,
+    required this.loadingLabel,
+    required this.unavailableTitle,
     required this.onPlayPause,
     required this.onSkipBackward,
     required this.onSkipForward,
@@ -597,7 +631,7 @@ class _CenterControls extends StatelessWidget {
       return _PlayerMessage(
         icon: Icons.error_outline_rounded,
         metrics: metrics,
-        title: 'Trailer unavailable',
+        title: unavailableTitle,
         subtitle: errorMessage!,
       );
     }
@@ -611,9 +645,7 @@ class _CenterControls extends StatelessWidget {
         if (isLoading || buffering) {
           return _LoadingControl(
             metrics: metrics,
-            label: isLoading
-                ? 'Preparing your trailer...'
-                : 'Keeping playback smooth...',
+            label: isLoading ? loadingLabel : 'Keeping playback smooth...',
           );
         }
 
