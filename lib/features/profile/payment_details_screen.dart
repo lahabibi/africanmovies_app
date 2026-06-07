@@ -21,6 +21,9 @@ class PaymentDetailsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final headerHeight = Responsive.headerHeight(context);
     final paymentMethodState = ref.watch(savedPaymentMethodControllerProvider);
+    final saveCardPromptPreferenceState = ref.watch(
+      saveCardPromptPreferenceControllerProvider,
+    );
 
     return AppScaffold(
       usePadding: true,
@@ -54,10 +57,37 @@ class PaymentDetailsScreen extends ConsumerWidget {
                       Text(
                         'Manage your saved payment method for movie purchases.',
                         style: TextStyle(
-                          fontSize: 14.sp,
+                          fontSize: 12.sp,
                           height: 1.45,
                           color: AppColors.textSecondary,
                         ),
+                      ),
+
+                      SizedBox(height: 22.h),
+
+                      _SaveCardPromptPreferenceCard(
+                        state: saveCardPromptPreferenceState,
+                        onChanged: (shouldAsk) async {
+                          try {
+                            await ref
+                                .read(
+                                  saveCardPromptPreferenceControllerProvider
+                                      .notifier,
+                                )
+                                .setShouldAskAfterCheckout(shouldAsk);
+
+                            if (!context.mounted) return;
+                            _showMessage(
+                              context,
+                              shouldAsk
+                                  ? 'Save-card prompt enabled.'
+                                  : 'Save-card prompt disabled.',
+                            );
+                          } catch (error) {
+                            if (!context.mounted) return;
+                            _showMessage(context, _messageFor(error));
+                          }
+                        },
                       ),
 
                       SizedBox(height: 22.h),
@@ -322,6 +352,121 @@ class _SavedPaymentMethodView extends StatelessWidget {
 
         _RemoveCardButton(onTap: onRemoveCard),
       ],
+    );
+  }
+}
+
+class _SaveCardPromptPreferenceCard extends StatelessWidget {
+  final AsyncValue<bool> state;
+  final Future<void> Function(bool shouldAsk) onChanged;
+
+  const _SaveCardPromptPreferenceCard({
+    required this.state,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final shouldAsk = state.asData?.value ?? true;
+    final isLoading = state.isLoading;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(14.w, 13.h, 10.w, 13.h),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: shouldAsk
+              ? AppColors.heroButton.withValues(alpha: 0.28)
+              : AppColors.cardBorder,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.heroButton.withValues(
+              alpha: shouldAsk ? 0.08 : 0.03,
+            ),
+            blurRadius: 18.r,
+            offset: Offset(0, 8.h),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42.w,
+            height: 42.w,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              color: AppColors.heroButton.withValues(alpha: 0.12),
+              border: Border.all(
+                color: AppColors.heroButton.withValues(alpha: 0.30),
+              ),
+            ),
+            child: Icon(
+              shouldAsk
+                  ? Icons.notifications_active_rounded
+                  : Icons.notifications_off_outlined,
+              color: shouldAsk ? AppColors.primary : AppColors.textSecondary,
+              size: 20.sp,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ask to save card after checkout',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5.sp,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  shouldAsk
+                      ? 'We can ask after successful card purchases.'
+                      : 'Save-card prompts are hidden on this device.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11.sp,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8.w),
+          if (isLoading)
+            SizedBox(
+              width: 24.w,
+              height: 24.w,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2.w,
+                color: AppColors.heroButton,
+              ),
+            )
+          else
+            Transform.scale(
+              scale: 0.86,
+              child: Switch.adaptive(
+                value: shouldAsk,
+                activeThumbColor: AppColors.heroButton,
+                activeTrackColor: AppColors.heroButton.withValues(alpha: 0.32),
+                inactiveThumbColor: AppColors.textSecondary,
+                inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
+                onChanged: onChanged,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -38,6 +38,39 @@ final savedPaymentMethodControllerProvider =
       SavedPaymentMethodController.new,
     );
 
+final saveCardPromptPreferenceControllerProvider =
+    AsyncNotifierProvider<SaveCardPromptPreferenceController, bool>(
+      SaveCardPromptPreferenceController.new,
+    );
+
+class SaveCardPromptPreferenceController extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final isHidden = await ref
+        .watch(paymentPreferencesStoreProvider)
+        .isSaveCardPromptHidden();
+
+    return !isHidden;
+  }
+
+  Future<void> setShouldAskAfterCheckout(bool shouldAsk) async {
+    final previousValue = state.asData?.value ?? true;
+    state = AsyncData(shouldAsk);
+
+    try {
+      final store = ref.read(paymentPreferencesStoreProvider);
+      if (shouldAsk) {
+        await store.showSaveCardPrompt();
+      } else {
+        await store.hideSaveCardPrompt();
+      }
+    } catch (error, stackTrace) {
+      state = AsyncData(previousValue);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+}
+
 class SavedPaymentMethodController extends AsyncNotifier<SavedPaymentMethod?> {
   @override
   Future<SavedPaymentMethod?> build() {
