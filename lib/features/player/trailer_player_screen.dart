@@ -19,6 +19,7 @@ class TrailerPlayerScreen extends StatefulWidget {
   final String unavailableTitle;
   final String fallbackErrorMessage;
   final Duration initialPosition;
+  final Duration? expectedDuration;
 
   const TrailerPlayerScreen({
     super.key,
@@ -30,6 +31,7 @@ class TrailerPlayerScreen extends StatefulWidget {
     this.fallbackErrorMessage =
         'Could not start this trailer. Please try again.',
     this.initialPosition = Duration.zero,
+    this.expectedDuration,
   });
 
   @override
@@ -37,20 +39,40 @@ class TrailerPlayerScreen extends StatefulWidget {
 }
 
 class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
+  static const _resumeEndHeadroom = Duration(seconds: 8);
+  static const _warmResumeDelay = Duration(milliseconds: 900);
+  static const _warmResumeReadinessDelay = Duration(milliseconds: 450);
+  static const _warmResumeRetryDelay = Duration(milliseconds: 650);
+  static const _warmResumeSettleDelay = Duration(milliseconds: 450);
+  static const _warmResumePreroll = Duration(seconds: 4);
+  static const _warmResumeTolerance = Duration(seconds: 2);
+  static const _warmResumeOvershootTolerance = Duration(seconds: 5);
+  static const _maxWarmResumeAttempts = 5;
+  static const _maxWarmResumeReadinessWait = Duration(seconds: 18);
+
   late final Player _player;
   late final VideoController _controller;
 
   StreamSubscription<String>? _errorSubscription;
   StreamSubscription<bool>? _completedSubscription;
   StreamSubscription<bool>? _playingSubscription;
+  StreamSubscription<bool>? _bufferingSubscription;
   StreamSubscription<Duration>? _durationSubscription;
   StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration>? _bufferSubscription;
+  StreamSubscription<int?>? _widthSubscription;
+  StreamSubscription<int?>? _heightSubscription;
   Timer? _controlsTimer;
   Timer? _fatalErrorTimer;
+  Timer? _warmResumeTimer;
 
   bool _controlsVisible = true;
   bool _isOpening = true;
   bool _hasPlayableMedia = false;
+  bool _warmResumeApplied = false;
+  bool _warmResumeInProgress = false;
+  int _warmResumeAttempts = 0;
+  DateTime? _warmResumeWaitStartedAt;
   bool _orientationWasChanged = false;
   double _lastAudibleVolume = 100;
   String? _pendingErrorMessage;
@@ -80,17 +102,40 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
     _playingSubscription = _player.stream.playing.listen((playing) {
       if (!mounted || !playing) return;
       _markMediaPlayable();
+      _scheduleWarmResume();
       _scheduleControlsHide();
+    });
+
+    _bufferingSubscription = _player.stream.buffering.listen((_) {
+      if (!mounted) return;
+      _scheduleWarmResume();
     });
 
     _durationSubscription = _player.stream.duration.listen((duration) {
       if (!mounted || duration <= Duration.zero) return;
       _markMediaPlayable();
+      _scheduleWarmResume();
+    });
+
+    _bufferSubscription = _player.stream.buffer.listen((buffer) {
+      if (!mounted || buffer <= Duration.zero) return;
+      _scheduleWarmResume();
     });
 
     _positionSubscription = _player.stream.position.listen((position) {
       if (!mounted || position <= Duration.zero) return;
       _markMediaPlayable();
+      _scheduleWarmResume();
+    });
+
+    _widthSubscription = _player.stream.width.listen((width) {
+      if (!mounted || width == null || width <= 0) return;
+      _scheduleWarmResume();
+    });
+
+    _heightSubscription = _player.stream.height.listen((height) {
+      if (!mounted || height == null || height <= 0) return;
+      _scheduleWarmResume();
     });
   }
 
@@ -98,6 +143,10 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
     try {
       _isOpening = true;
       _hasPlayableMedia = false;
+      _warmResumeApplied = _resolvedInitialPosition == null;
+      _warmResumeInProgress = false;
+      _warmResumeAttempts = 0;
+      _warmResumeWaitStartedAt = null;
       _pendingErrorMessage = null;
       _fatalErrorMessage = null;
 
@@ -107,11 +156,9 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
       }
 
       await _prepareAudioOutput();
-      await _player.open(Media(playableUrl));
+      await _player.open(Media(playableUrl), play: true);
       await _selectDefaultAudioTrack();
-      if (widget.initialPosition > Duration.zero) {
-        await _player.seek(widget.initialPosition);
-      }
+      _scheduleWarmResume();
       if (_hasPlayableState) _markMediaPlayable();
       _scheduleControlsHide();
     } catch (error) {
@@ -130,9 +177,14 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
     _errorSubscription?.cancel();
     _completedSubscription?.cancel();
     _playingSubscription?.cancel();
+    _bufferingSubscription?.cancel();
     _durationSubscription?.cancel();
     _positionSubscription?.cancel();
+    _bufferSubscription?.cancel();
+    _widthSubscription?.cancel();
+    _heightSubscription?.cancel();
     _fatalErrorTimer?.cancel();
+    _warmResumeTimer?.cancel();
     _player.dispose();
     if (_orientationWasChanged) {
       unawaited(_enterPortraitMode());
@@ -299,17 +351,189 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
   }
 
   void _markMediaPlayable() {
+    if (!mounted) return;
+
     _fatalErrorTimer?.cancel();
     _pendingErrorMessage = null;
 
-    if (_hasPlayableMedia && !_isOpening && _fatalErrorMessage == null) {
+    final waitingForResume = _hasPendingWarmResume;
+
+    if (_hasPlayableMedia &&
+        _isOpening == waitingForResume &&
+        _fatalErrorMessage == null) {
       return;
     }
 
     setState(() {
       _hasPlayableMedia = true;
-      _isOpening = false;
+      _isOpening = waitingForResume;
       _fatalErrorMessage = null;
+    });
+  }
+
+  bool get _hasPendingWarmResume {
+    return _resolvedInitialPosition != null && !_warmResumeApplied;
+  }
+
+  Duration? get _resolvedInitialPosition {
+    var startPosition = widget.initialPosition;
+    if (startPosition <= Duration.zero) return null;
+
+    final durationCeiling = _resumeDurationCeiling;
+    if (durationCeiling == null || durationCeiling <= Duration.zero) {
+      return startPosition;
+    }
+
+    final latestUsefulPosition = durationCeiling - _resumeEndHeadroom;
+    if (latestUsefulPosition <= Duration.zero) return null;
+
+    if (startPosition > latestUsefulPosition) {
+      startPosition = latestUsefulPosition;
+    }
+
+    return startPosition;
+  }
+
+  Duration? get _resumeDurationCeiling {
+    final mediaDuration = _player.state.duration;
+    final expectedDuration = widget.expectedDuration;
+
+    final hasMediaDuration = mediaDuration > Duration.zero;
+    final hasExpectedDuration =
+        expectedDuration != null && expectedDuration > Duration.zero;
+
+    if (hasMediaDuration && hasExpectedDuration) {
+      return mediaDuration < expectedDuration
+          ? mediaDuration
+          : expectedDuration;
+    }
+
+    if (hasMediaDuration) return mediaDuration;
+    if (hasExpectedDuration) return expectedDuration;
+    return null;
+  }
+
+  void _scheduleWarmResume() {
+    final startPosition = _resolvedInitialPosition;
+    if (startPosition == null) return;
+    if (_warmResumeApplied || _warmResumeInProgress) return;
+    if (_warmResumeTimer?.isActive == true) return;
+
+    _warmResumeWaitStartedAt ??= DateTime.now();
+
+    if (!_isReadyForWarmResume && !_warmResumeReadinessExpired) {
+      _warmResumeTimer = Timer(_warmResumeReadinessDelay, () {
+        if (!mounted) return;
+        _scheduleWarmResume();
+      });
+      return;
+    }
+
+    _warmResumeTimer = Timer(_warmResumeDelay, () {
+      if (!mounted) return;
+      unawaited(_applyWarmResume(startPosition));
+    });
+  }
+
+  Future<void> _applyWarmResume(Duration startPosition) async {
+    if (_warmResumeApplied || _warmResumeInProgress) return;
+
+    if (!_isReadyForWarmResume && !_warmResumeReadinessExpired) {
+      _scheduleWarmResume();
+      return;
+    }
+
+    _warmResumeAttempts++;
+    _warmResumeInProgress = true;
+
+    try {
+      await _seekForResume(startPosition);
+      await _player.play();
+      await Future<void>.delayed(_warmResumeSettleDelay);
+      await _player.play();
+
+      if (_resumeSeekHasLanded(startPosition) ||
+          _warmResumeAttempts >= _maxWarmResumeAttempts) {
+        _warmResumeApplied = true;
+        _markMediaPlayable();
+        _scheduleControlsHide();
+      } else {
+        _scheduleWarmResumeRetry();
+      }
+    } catch (_) {
+      // Playback errors are surfaced by the normal player error listener.
+      if (_warmResumeAttempts >= _maxWarmResumeAttempts) {
+        _warmResumeApplied = true;
+        _markMediaPlayable();
+      } else {
+        _scheduleWarmResumeRetry();
+      }
+    } finally {
+      _warmResumeInProgress = false;
+    }
+  }
+
+  bool get _isReadyForWarmResume {
+    final state = _player.state;
+
+    return state.duration > Duration.zero ||
+        state.buffer > Duration.zero ||
+        state.position > Duration.zero ||
+        ((state.width ?? 0) > 0 && (state.height ?? 0) > 0);
+  }
+
+  bool get _warmResumeReadinessExpired {
+    final startedAt = _warmResumeWaitStartedAt;
+    if (startedAt == null) return false;
+
+    return DateTime.now().difference(startedAt) >= _maxWarmResumeReadinessWait;
+  }
+
+  Future<void> _seekForResume(Duration startPosition) async {
+    await _player.seek(_safeResumePosition(startPosition));
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+  }
+
+  Duration _safeResumePosition(Duration startPosition) {
+    final durationCeiling = _resumeDurationCeiling;
+    var targetPosition = startPosition > _warmResumePreroll
+        ? startPosition - _warmResumePreroll
+        : Duration.zero;
+
+    if (durationCeiling == null || durationCeiling <= Duration.zero) {
+      return targetPosition;
+    }
+
+    final latestUsefulPosition = durationCeiling - _resumeEndHeadroom;
+    if (latestUsefulPosition <= Duration.zero) return Duration.zero;
+
+    if (targetPosition > latestUsefulPosition) {
+      targetPosition = latestUsefulPosition;
+    }
+
+    return targetPosition;
+  }
+
+  bool _resumeSeekHasLanded(Duration startPosition) {
+    final position = _player.state.position;
+    final seekPosition = _safeResumePosition(startPosition);
+    final lowerBound = seekPosition - _warmResumeTolerance;
+    final upperBound = startPosition + _warmResumeOvershootTolerance;
+
+    return position >= lowerBound && position <= upperBound;
+  }
+
+  void _scheduleWarmResumeRetry() {
+    if (_warmResumeApplied) return;
+    if (_warmResumeAttempts >= _maxWarmResumeAttempts) return;
+    if (_warmResumeTimer?.isActive == true) return;
+
+    final startPosition = _resolvedInitialPosition;
+    if (startPosition == null) return;
+
+    _warmResumeTimer = Timer(_warmResumeRetryDelay, () {
+      if (!mounted) return;
+      unawaited(_applyWarmResume(startPosition));
     });
   }
 
@@ -394,7 +618,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
                     title: widget.title,
                     badgeLabel: widget.badgeLabel,
                     player: _player,
-                    isLoading: _isOpening && !_hasPlayableMedia,
+                    isLoading: _isOpening && _fatalErrorMessage == null,
                     errorMessage: _fatalErrorMessage,
                     loadingLabel: widget.loadingLabel,
                     unavailableTitle: widget.unavailableTitle,

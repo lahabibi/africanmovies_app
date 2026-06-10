@@ -31,6 +31,12 @@ class MoviePlayback {
     return Duration(seconds: startTime.round());
   }
 
+  Duration? get expectedDuration {
+    if (duration <= 0) return null;
+
+    return Duration(seconds: (duration * 60).round());
+  }
+
   bool get canPlay => allowed && playbackUrl.trim().isNotEmpty;
 
   factory MoviePlayback.fromJson(Map<String, dynamic> json) {
