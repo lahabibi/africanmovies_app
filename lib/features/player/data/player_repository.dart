@@ -39,4 +39,21 @@ class PlayerRepository {
       throw ApiException.fromDio(error);
     }
   }
+
+  Future<void> savePlaybackProgress({
+    required String orderId,
+    required Duration position,
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    if (normalizedOrderId.isEmpty) return;
+
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '/orders/currentTime',
+        data: {'_id': normalizedOrderId, 'currentTime': position.inSeconds},
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
 }
