@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:africanmovies/core/network/api_exception.dart';
 import 'package:africanmovies/features/home/widgets/continue_watching_card.dart';
 import 'package:africanmovies/features/home/widgets/genre_circle_item.dart';
 import 'package:africanmovies/features/home/widgets/home_header.dart';
@@ -8,7 +9,10 @@ import 'package:africanmovies/features/movie_list/movie_list_screen.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/movies/domain/home_data.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
+import 'package:africanmovies/features/player/application/player_providers.dart';
+import 'package:africanmovies/features/player/movie_player_screen.dart';
 import 'package:africanmovies/features/player/trailer_player_screen.dart';
+import 'package:africanmovies/shared/widgets/app_image.dart';
 import 'package:africanmovies/shared/widgets/section_movie_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +20,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_radius.dart';
 import '../../core/constants/app_spacing.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/widgets/app_scaffold.dart';
@@ -37,6 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _activeHeroIndex = 0;
   int _heroItemCount = 1;
   Timer? _heroTimer;
+  String? _openingContinueWatchingOrderId;
 
   @override
   void initState() {
@@ -88,9 +94,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final trailerUrl = movie.trailerUrl.trim();
 
     if (trailerUrl.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Trailer unavailable')));
+      _showMessage('Trailer unavailable');
       return;
     }
 
@@ -101,6 +105,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             TrailerPlayerScreen(title: movie.title, videoUrl: trailerUrl),
       ),
     );
+  }
+
+  Future<void> _openContinueWatching(HomeOrder order) async {
+    final movie = order.movie;
+    if (movie == null || _openingContinueWatchingOrderId != null) return;
+
+    final openingId = order.id.isNotEmpty ? order.id : movie.id;
+    setState(() => _openingContinueWatchingOrderId = openingId);
+
+    try {
+      final playback = await ref
+          .read(playerRepositoryProvider)
+          .requestMoviePlayback(movie.id);
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MoviePlayerScreen(playback: playback),
+        ),
+      );
+
+      if (!mounted) return;
+      ref.invalidate(homeDataProvider);
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_messageFor(error));
+    } finally {
+      if (mounted) {
+        setState(() => _openingContinueWatchingOrderId = null);
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _messageFor(Object error) {
+    if (error is ApiException) return error.message;
+
+    return error.toString();
   }
 
   @override
@@ -140,7 +189,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final latestMovies = data.latestUploadedMovies;
     final genreItems = _genreItems(data);
     final genreMovieSections = _genreMovieSections(data, genreItems);
-    final continueWatchingMovies = data.continueWatchingMovies;
+    final continueWatchingOrders = data.continueWatchingOrders;
+    final hasContinueWatching = continueWatchingOrders.isNotEmpty;
 
     if (data.movies.isEmpty) {
       return RefreshIndicator(
@@ -226,75 +276,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
 
-            if (continueWatchingMovies.isNotEmpty) ...[
+            if (hasContinueWatching) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),
-              SectionHeader(
-                title: 'Continue Watching',
-                actionText: 'See All »',
-                onActionTap: () {
-                  _openMovieList('Continue Watching', continueWatchingMovies);
-                },
-              ),
-              SizedBox(height: 8.h),
-              SizedBox(
-                height: 136.h,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: continueWatchingMovies.length,
-                  separatorBuilder: (_, _) => SizedBox(width: 5.w),
-                  itemBuilder: (_, index) {
-                    final movie = continueWatchingMovies[index];
-
-                    return ContinueWatchingCard(
-                      image: movie.displayPosterUrl,
-                      timeLeft: 'Resume',
-                      progress: 0.34,
-                    );
-                  },
-                ),
+              _ContinueWatchingSection(
+                orders: continueWatchingOrders,
+                openingOrderId: _openingContinueWatchingOrderId,
+                onOrderTap: _openContinueWatching,
+                onSeeAllTap: continueWatchingOrders.length > 2
+                    ? () {
+                        _openMovieList(
+                          'Continue Watching',
+                          data.continueWatchingMovies,
+                        );
+                      }
+                    : null,
               ),
             ],
 
-            SizedBox(height: AppSpacing.sectionXxsGap),
-
-            SectionHeader(
-              title: 'New Releases',
-              actionText: 'See All »',
-              onActionTap: () {
-                _openMovieList('New Releases', latestMovies);
-              },
-            ),
-
-            SizedBox(height: 10.h),
-
-            _MovieRow(movies: latestMovies, onMovieTap: _openMovieDetails),
-
-            SizedBox(height: 10.h),
+            if (!hasContinueWatching) ...[
+              SizedBox(height: AppSpacing.sectionXxsGap),
+              _NewReleasesSection(
+                movies: latestMovies,
+                onSeeAllTap: () => _openMovieList('New Releases', latestMovies),
+                onMovieTap: _openMovieDetails,
+              ),
+            ],
 
             if (genreItems.isNotEmpty) ...[
               SizedBox(height: AppSpacing.sectionXxsGap),
-              SectionHeader(
-                title: 'Genres',
-                actionText: 'See All »',
-                onActionTap: widget.onGenresRequested,
+              _GenresStripSection(
+                items: genreItems,
+                onSeeAllTap: widget.onGenresRequested,
+                onGenreSelected: widget.onGenreSelected,
               ),
-              SizedBox(height: 10.h),
-              SizedBox(
-                height: 70.h,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: genreItems.length,
-                  separatorBuilder: (_, _) => SizedBox(width: 18.w),
-                  itemBuilder: (_, index) {
-                    final genre = genreItems[index];
+            ],
 
-                    return GenreCircleItem(
-                      label: genre.label,
-                      image: genre.image,
-                      onTap: () => widget.onGenreSelected?.call(genre.label),
-                    );
-                  },
-                ),
+            if (hasContinueWatching) ...[
+              SizedBox(height: AppSpacing.sectionXxsGap),
+              _NewReleasesSection(
+                movies: latestMovies,
+                onSeeAllTap: () => _openMovieList('New Releases', latestMovies),
+                onMovieTap: _openMovieDetails,
               ),
             ],
 
@@ -383,6 +405,289 @@ class _HomeGenreMovieSection {
   const _HomeGenreMovieSection({required this.genre, required this.movies});
 }
 
+class _NewReleasesSection extends StatelessWidget {
+  final List<Movie> movies;
+  final VoidCallback onSeeAllTap;
+  final ValueChanged<Movie> onMovieTap;
+
+  const _NewReleasesSection({
+    required this.movies,
+    required this.onSeeAllTap,
+    required this.onMovieTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'New Releases',
+          actionText: 'See All »',
+          onActionTap: onSeeAllTap,
+        ),
+        SizedBox(height: 10.h),
+        _MovieRow(movies: movies, onMovieTap: onMovieTap),
+      ],
+    );
+  }
+}
+
+class _GenresStripSection extends StatelessWidget {
+  final List<_HomeGenreItem> items;
+  final VoidCallback? onSeeAllTap;
+  final ValueChanged<String>? onGenreSelected;
+
+  const _GenresStripSection({
+    required this.items,
+    this.onSeeAllTap,
+    this.onGenreSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Genres',
+          actionText: 'See All »',
+          onActionTap: onSeeAllTap,
+        ),
+        SizedBox(height: 10.h),
+        SizedBox(
+          height: 70.h,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => SizedBox(width: 18.w),
+            itemBuilder: (_, index) {
+              final genre = items[index];
+
+              return GenreCircleItem(
+                label: genre.label,
+                image: genre.image,
+                onTap: () => onGenreSelected?.call(genre.label),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContinueWatchingSection extends StatelessWidget {
+  final List<HomeOrder> orders;
+  final String? openingOrderId;
+  final ValueChanged<HomeOrder> onOrderTap;
+  final VoidCallback? onSeeAllTap;
+
+  const _ContinueWatchingSection({
+    required this.orders,
+    required this.openingOrderId,
+    required this.onOrderTap,
+    this.onSeeAllTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final useCompactLayout = orders.length <= 2;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Continue Watching',
+          actionText: onSeeAllTap == null ? null : 'See All »',
+          onActionTap: onSeeAllTap,
+        ),
+        SizedBox(height: 8.h),
+        if (useCompactLayout)
+          Column(
+            children: [
+              for (var index = 0; index < orders.length; index++) ...[
+                _CompactContinueWatchingCard(
+                  order: orders[index],
+                  isLoading: _isOpening(orders[index]),
+                  onTap: () => onOrderTap(orders[index]),
+                ),
+                if (index != orders.length - 1) SizedBox(height: 8.h),
+              ],
+            ],
+          )
+        else
+          SizedBox(
+            height: 136.h,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: orders.length,
+              separatorBuilder: (_, _) => SizedBox(width: 5.w),
+              itemBuilder: (_, index) {
+                final order = orders[index];
+                final movie = order.movie;
+                if (movie == null) return const SizedBox.shrink();
+
+                return ContinueWatchingCard(
+                  image: movie.displayPosterUrl,
+                  timeLeft: _formatResumePosition(order.currentTime),
+                  progress: order.progress,
+                  onTap: () => onOrderTap(order),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  bool _isOpening(HomeOrder order) {
+    final movie = order.movie;
+    if (movie == null) return false;
+
+    final orderId = order.id.isNotEmpty ? order.id : movie.id;
+    return openingOrderId == orderId;
+  }
+}
+
+class _CompactContinueWatchingCard extends StatelessWidget {
+  final HomeOrder order;
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  const _CompactContinueWatchingCard({
+    required this.order,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final movie = order.movie!;
+
+    return GestureDetector(
+      onTap: isLoading ? null : onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 92.h,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppColors.card.withValues(alpha: 0.86),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(color: AppColors.cardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 18.r,
+              offset: Offset(0, 8.h),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 76.w,
+              height: double.infinity,
+              child: AppImage(source: movie.displayPosterUrl),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(11.w, 9.h, 9.w, 9.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      movie.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3.h),
+                    Text(
+                      _movieMeta(movie),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.full),
+                      child: LinearProgressIndicator(
+                        value: order.progress,
+                        minHeight: 3.h,
+                        backgroundColor: Colors.white.withValues(alpha: 0.12),
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppColors.heroButton,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 7.h),
+                    Row(
+                      children: [
+                        Container(
+                          width: 22.w,
+                          height: 22.w,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.heroButton,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.heroButton.withValues(
+                                  alpha: 0.25,
+                                ),
+                                blurRadius: 10.r,
+                                offset: Offset(0, 4.h),
+                              ),
+                            ],
+                          ),
+                          child: isLoading
+                              ? Padding(
+                                  padding: EdgeInsets.all(5.w),
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 17.sp,
+                                ),
+                        ),
+                        SizedBox(width: 7.w),
+                        Expanded(
+                          child: Text(
+                            'Resume at ${_formatResumePosition(order.currentTime)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MovieRow extends StatelessWidget {
   final List<Movie> movies;
   final ValueChanged<Movie> onMovieTap;
@@ -408,6 +713,33 @@ class _MovieRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _movieMeta(Movie movie) {
+  final items = [
+    if (movie.duration > 0) movie.durationLabel,
+    if (movie.genre.isNotEmpty) movie.genre,
+  ];
+
+  return items.join(' / ');
+}
+
+String _formatResumePosition(double seconds) {
+  final totalSeconds = seconds.round();
+  if (totalSeconds <= 0) return '0:00';
+
+  final duration = Duration(seconds: totalSeconds);
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  final remainingSeconds = duration.inSeconds.remainder(60);
+  final paddedSeconds = remainingSeconds.toString().padLeft(2, '0');
+
+  if (hours > 0) {
+    final paddedMinutes = minutes.toString().padLeft(2, '0');
+    return '$hours:$paddedMinutes:$paddedSeconds';
+  }
+
+  return '$minutes:$paddedSeconds';
 }
 
 class _HomeLoadingView extends StatelessWidget {

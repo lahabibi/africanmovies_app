@@ -15,15 +15,20 @@ class HomeData {
   });
 
   factory HomeData.fromJson(Map<String, dynamic> json) {
+    final movies = _readMapList(json['movies']).map(Movie.fromJson).toList();
+    final moviesById = {for (final movie in movies) movie.id: movie};
+
     return HomeData(
-      movies: _readMapList(json['movies']).map(Movie.fromJson).toList(),
+      movies: movies,
       genres: _readMapList(json['genres']).map(MovieGenre.fromJson).toList(),
       longevity: json['longevity'] is Map
           ? MovieLongevity.fromJson(
               Map<String, dynamic>.from(json['longevity'] as Map),
             )
           : null,
-      orders: _readMapList(json['orders']).map(HomeOrder.fromJson).toList(),
+      orders: _readMapList(json['orders'])
+          .map((order) => HomeOrder.fromJson(order, moviesById: moviesById))
+          .toList(),
     );
   }
 
@@ -56,11 +61,12 @@ class HomeData {
         .toList();
   }
 
+  List<HomeOrder> get continueWatchingOrders {
+    return orders.where((order) => order.isInProgress).toList();
+  }
+
   List<Movie> get continueWatchingMovies {
-    return orders
-        .where((order) => order.movie != null)
-        .map((order) => order.movie!)
-        .toList();
+    return continueWatchingOrders.map((order) => order.movie!).toList();
   }
 
   Map<String, dynamic> toJson() {
@@ -129,22 +135,31 @@ class HomeOrder {
     this.movie,
   });
 
-  factory HomeOrder.fromJson(Map<String, dynamic> json) {
-    final rawMovie = json['movieId'];
-    final movie = rawMovie is Map
+  factory HomeOrder.fromJson(
+    Map<String, dynamic> json, {
+    Map<String, Movie> moviesById = const <String, Movie>{},
+  }) {
+    final rawMovieId = json['movieId'];
+    final rawMovie = json['movie'];
+    final populatedMovie = rawMovieId is Map
+        ? Movie.fromJson(Map<String, dynamic>.from(rawMovieId))
+        : rawMovie is Map
         ? Movie.fromJson(Map<String, dynamic>.from(rawMovie))
         : null;
+    final movieId = rawMovieId is Map
+        ? rawMovieId['_id']?.toString() ?? ''
+        : rawMovieId?.toString() ??
+              populatedMovie?.id ??
+              (rawMovie is String ? rawMovie : '');
 
     return HomeOrder(
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
-      movieId: rawMovie is Map
-          ? rawMovie['_id']?.toString() ?? ''
-          : rawMovie?.toString() ?? '',
+      movieId: movieId,
       currentTime: double.tryParse(json['currentTime']?.toString() ?? '') ?? 0,
       expiryDate: DateTime.tryParse(json['expiryDate']?.toString() ?? ''),
       startWatch: json['startWatch'] == true,
       paid: json['paid'] == true,
-      movie: movie,
+      movie: populatedMovie ?? moviesById[movieId],
     );
   }
 
@@ -157,5 +172,30 @@ class HomeOrder {
       'startWatch': startWatch,
       'paid': paid,
     };
+  }
+
+  bool get isInProgress {
+    final movie = this.movie;
+    if (movie == null || currentTime <= 0) return false;
+
+    final expiryDate = this.expiryDate;
+    if (expiryDate != null && !expiryDate.isAfter(DateTime.now())) {
+      return false;
+    }
+
+    final durationSeconds = movie.duration * 60;
+    if (durationSeconds <= 0) return true;
+
+    return currentTime < durationSeconds - 8;
+  }
+
+  double get progress {
+    final movie = this.movie;
+    if (movie == null || currentTime <= 0) return 0;
+
+    final durationSeconds = movie.duration * 60;
+    if (durationSeconds <= 0) return 0;
+
+    return (currentTime / durationSeconds).clamp(0.0, 1.0).toDouble();
   }
 }
