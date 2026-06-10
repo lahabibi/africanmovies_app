@@ -130,7 +130,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     state = const AsyncLoading();
 
     try {
-      if (movie.isFree || movie.price <= 0) {
+      if (movie.price <= 0) {
         final result = PurchaseResult.failed(
           'This movie is free. Playback will open from Watch Now.',
         );
@@ -225,7 +225,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     state = const AsyncLoading();
 
     try {
-      if (movie.isFree || movie.price <= 0) {
+      if (movie.price <= 0) {
         final result = PurchaseResult.failed(
           'This movie is free. Playback will open from Watch Now.',
         );

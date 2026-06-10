@@ -28,25 +28,10 @@ void main() {
       genre: 'Drama',
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          homeDataProvider.overrideWith(
-            (_) async => HomeData(
-              movies: [movie, relatedMovie],
-              genres: const [],
-              orders: const [],
-            ),
-          ),
-        ],
-        child: ScreenUtilInit(
-          designSize: const Size(390, 844),
-          builder: (_, _) => MaterialApp(
-            theme: AppTheme.darkTheme,
-            home: MovieDetailsScreen(movie: movie),
-          ),
-        ),
-      ),
+    await _pumpMovieDetails(
+      tester,
+      movie: movie,
+      movies: [movie, relatedMovie],
     );
 
     await tester.pump();
@@ -54,6 +39,90 @@ void main() {
     expect(find.text('Watch for \$0'), findsOneWidget);
     expect(find.text('More Like This'), findsOneWidget);
   });
+
+  testWidgets('shows Watch Free for an unclaimed free movie', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final movie = _movie(
+      id: 'free-movie',
+      title: 'Free Movie',
+      genre: 'Drama',
+      isFree: true,
+      price: 0.99,
+    );
+
+    await _pumpMovieDetails(tester, movie: movie, movies: [movie]);
+    await tester.pump();
+
+    expect(find.text('Watch Free'), findsOneWidget);
+    expect(find.text('Claim free access'), findsOneWidget);
+  });
+
+  testWidgets('shows paid access after free movie claim expires', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final movie = _movie(
+      id: 'free-movie',
+      title: 'Free Movie',
+      genre: 'Drama',
+      isFree: true,
+      price: 0.99,
+    );
+
+    await _pumpMovieDetails(
+      tester,
+      movie: movie,
+      movies: [movie],
+      orders: [
+        HomeOrder(
+          id: 'expired-order',
+          movieId: movie.id,
+          currentTime: 0,
+          expiryDate: DateTime(2026, 1, 1),
+          startWatch: true,
+          paid: true,
+          movie: movie,
+        ),
+      ],
+    );
+    await tester.pump();
+
+    expect(find.text('Watch for \$0.99'), findsOneWidget);
+    expect(find.text('Free access used'), findsOneWidget);
+  });
+}
+
+Future<void> _pumpMovieDetails(
+  WidgetTester tester, {
+  required Movie movie,
+  required List<Movie> movies,
+  List<HomeOrder> orders = const [],
+}) {
+  return tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        homeDataProvider.overrideWith(
+          (_) async =>
+              HomeData(movies: movies, genres: const [], orders: orders),
+        ),
+      ],
+      child: ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, _) => MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: MovieDetailsScreen(movie: movie),
+        ),
+      ),
+    ),
+  );
 }
 
 Movie _movie({
@@ -61,6 +130,8 @@ Movie _movie({
   required String title,
   required String genre,
   String description = 'A test movie description.',
+  bool isFree = false,
+  double price = 0,
 }) {
   return Movie(
     id: id,
@@ -68,9 +139,9 @@ Movie _movie({
     genre: genre,
     rating: '16',
     isBanner: false,
-    isFree: false,
+    isFree: isFree,
     viewersLimit: 0,
-    price: 0,
+    price: price,
     description: description,
     actors: const ['Actor One', 'Actor Two'],
     countryName: 'Senegal',

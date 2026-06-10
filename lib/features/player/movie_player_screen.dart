@@ -20,6 +20,7 @@ class MoviePlayerScreen extends ConsumerWidget {
       videoUrl: resolveDashVideoUrl(playback.playbackUrl),
       badgeLabel: 'MOVIE',
       loadingLabel: 'Preparing your movie...',
+      bufferingLabel: 'Loading movie...',
       unavailableTitle: 'Movie unavailable',
       fallbackErrorMessage: 'Could not start this movie. Please try again.',
       initialPosition: playback.startPosition,

@@ -42,6 +42,8 @@ enum _PurchasePaymentChoice { savedCard, newCard }
 
 enum _SavePaymentMethodChoice { save, notNow, dontAskAgain }
 
+enum _MovieAccessState { active, freeAvailable, paymentRequired }
+
 class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   bool _isTogglingWatchlist = false;
   bool _isTogglingFavorite = false;
@@ -197,7 +199,7 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
       shouldOfferPurchase =
           error is ApiException &&
           error.statusCode == 403 &&
-          !movie.isFree &&
+          movie.price > 0 &&
           !_isPurchaseInProgress;
     } finally {
       if (mounted) {
@@ -1290,7 +1292,8 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     final homeDataState = ref.watch(homeDataProvider);
     final relatedMovies = _relatedMovies(homeDataState);
     final hasSession = ref.watch(authControllerProvider).asData?.value != null;
-    final hasAccess = _hasMovieAccess(homeDataState);
+    final accessState = _movieAccessState(homeDataState);
+    final hasAccess = accessState != _MovieAccessState.paymentRequired;
     final purchaseState = ref.watch(purchaseControllerProvider);
     final isPurchasing =
         purchaseState.isLoading || _isSavingPaymentMethod || _isOpeningPlayer;
@@ -1332,14 +1335,8 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                               icon: hasAccess
                                   ? Icons.play_arrow_rounded
                                   : Icons.lock_outline_rounded,
-                              title: hasAccess
-                                  ? 'Watch Now'
-                                  : 'Watch for ${movie.priceLabel}',
-                              subtitle: hasAccess
-                                  ? movie.isFree
-                                        ? 'Free title'
-                                        : 'In your library'
-                                  : 'Add to your library',
+                              title: _watchButtonTitle(accessState),
+                              subtitle: _watchButtonSubtitle(accessState),
                               isLoading: isPurchasing,
                               onTap: isPurchasing
                                   ? null
@@ -1449,17 +1446,52 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     );
   }
 
-  bool _hasMovieAccess(AsyncValue<HomeData> homeDataState) {
-    if (movie.isFree) return true;
-
+  _MovieAccessState _movieAccessState(AsyncValue<HomeData> homeDataState) {
     return homeDataState.maybeWhen(
       data: (data) {
-        return data.orders.any(
-          (order) => order.movieId == movie.id && order.hasActiveAccess,
-        );
+        final movieOrders = data.orders
+            .where((order) => order.movieId == movie.id)
+            .toList();
+
+        if (movieOrders.any((order) => order.hasActiveAccess)) {
+          return _MovieAccessState.active;
+        }
+
+        if (movie.isFree && movieOrders.isEmpty) {
+          return _MovieAccessState.freeAvailable;
+        }
+
+        return _MovieAccessState.paymentRequired;
       },
-      orElse: () => false,
+      orElse: () => movie.isFree
+          ? _MovieAccessState.freeAvailable
+          : _MovieAccessState.paymentRequired,
     );
+  }
+
+  String _watchButtonTitle(_MovieAccessState accessState) {
+    return switch (accessState) {
+      _MovieAccessState.freeAvailable => 'Watch Free',
+      _MovieAccessState.active => 'Watch Now',
+      _MovieAccessState.paymentRequired => 'Watch for ${_paidPriceLabel()}',
+    };
+  }
+
+  String _watchButtonSubtitle(_MovieAccessState accessState) {
+    return switch (accessState) {
+      _MovieAccessState.freeAvailable => 'Claim free access',
+      _MovieAccessState.active => 'In your library',
+      _MovieAccessState.paymentRequired =>
+        movie.isFree ? 'Free access used' : 'Add to your library',
+    };
+  }
+
+  String _paidPriceLabel() {
+    final price = movie.price;
+    if (price <= 0) return movie.priceLabel;
+
+    final decimals = price % 1 == 0 ? 0 : 2;
+    return '\$${price.toStringAsFixed(decimals)}';
   }
 
   List<Movie> _relatedMovies(AsyncValue<HomeData> homeDataState) {

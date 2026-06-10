@@ -16,6 +16,7 @@ class TrailerPlayerScreen extends StatefulWidget {
   final String videoUrl;
   final String badgeLabel;
   final String loadingLabel;
+  final String bufferingLabel;
   final String unavailableTitle;
   final String fallbackErrorMessage;
   final Duration initialPosition;
@@ -28,6 +29,7 @@ class TrailerPlayerScreen extends StatefulWidget {
     required this.videoUrl,
     this.badgeLabel = 'TRAILER',
     this.loadingLabel = 'Preparing your trailer...',
+    this.bufferingLabel = 'Loading video...',
     this.unavailableTitle = 'Trailer unavailable',
     this.fallbackErrorMessage =
         'Could not start this trailer. Please try again.',
@@ -99,7 +101,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     _player = Player();
     _controller = VideoController(_player);
     _listenToPlayer();
-    _startTrailer();
+    _startPlayback();
   }
 
   void _listenToPlayer() {
@@ -160,7 +162,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     });
   }
 
-  Future<void> _startTrailer() async {
+  Future<void> _startPlayback() async {
     try {
       _isOpening = true;
       _hasPlayableMedia = false;
@@ -173,7 +175,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
 
       final playableUrl = resolvePlayableVideoUrl(widget.videoUrl);
       if (playableUrl.isEmpty) {
-        throw StateError('Missing trailer URL.');
+        throw StateError('Missing video URL.');
       }
 
       await _prepareAudioOutput();
@@ -699,7 +701,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     }
 
     _pendingErrorMessage = normalizedMessage.isEmpty
-        ? 'Unable to play trailer.'
+        ? widget.fallbackErrorMessage
         : normalizedMessage;
 
     _fatalErrorTimer?.cancel();
@@ -778,6 +780,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
                       isLoading: _isOpening && _fatalErrorMessage == null,
                       errorMessage: _fatalErrorMessage,
                       loadingLabel: widget.loadingLabel,
+                      bufferingLabel: widget.bufferingLabel,
                       unavailableTitle: widget.unavailableTitle,
                       onBack: _handleBack,
                       onPlayPause: _togglePlayPause,
@@ -806,6 +809,7 @@ class _TrailerControlsOverlay extends StatelessWidget {
   final bool isLoading;
   final String? errorMessage;
   final String loadingLabel;
+  final String bufferingLabel;
   final String unavailableTitle;
   final VoidCallback onBack;
   final VoidCallback onPlayPause;
@@ -823,6 +827,7 @@ class _TrailerControlsOverlay extends StatelessWidget {
     required this.isLoading,
     required this.errorMessage,
     required this.loadingLabel,
+    required this.bufferingLabel,
     required this.unavailableTitle,
     required this.onBack,
     required this.onPlayPause,
@@ -875,6 +880,7 @@ class _TrailerControlsOverlay extends StatelessWidget {
                   isLoading: isLoading,
                   errorMessage: errorMessage,
                   loadingLabel: loadingLabel,
+                  bufferingLabel: bufferingLabel,
                   unavailableTitle: unavailableTitle,
                   onPlayPause: onPlayPause,
                   onSkipBackward: onSkipBackward,
@@ -990,6 +996,7 @@ class _CenterControls extends StatelessWidget {
   final bool isLoading;
   final String? errorMessage;
   final String loadingLabel;
+  final String bufferingLabel;
   final String unavailableTitle;
   final VoidCallback onPlayPause;
   final VoidCallback onSkipBackward;
@@ -1001,6 +1008,7 @@ class _CenterControls extends StatelessWidget {
     required this.isLoading,
     required this.errorMessage,
     required this.loadingLabel,
+    required this.bufferingLabel,
     required this.unavailableTitle,
     required this.onPlayPause,
     required this.onSkipBackward,
@@ -1038,7 +1046,7 @@ class _CenterControls extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (buffering) ...[
-                  _BufferingPill(metrics: metrics),
+                  _BufferingPill(metrics: metrics, label: bufferingLabel),
                   SizedBox(height: metrics.bufferingControlGap),
                 ],
                 Row(
@@ -1083,8 +1091,9 @@ class _CenterControls extends StatelessWidget {
 
 class _BufferingPill extends StatelessWidget {
   final _PlayerControlMetrics metrics;
+  final String label;
 
-  const _BufferingPill({required this.metrics});
+  const _BufferingPill({required this.metrics, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1108,7 +1117,7 @@ class _BufferingPill extends StatelessWidget {
           ),
           SizedBox(width: metrics.bufferingGap),
           Text(
-            'Loading video...',
+            label,
             style: TextStyle(
               fontSize: metrics.bufferingFontSize,
               fontWeight: FontWeight.w800,
