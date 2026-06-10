@@ -69,14 +69,15 @@ class MovieHero extends StatelessWidget {
             ),
           ),
 
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 16.h,
-            right: horizontalPadding,
-            child: _CircleIconButton(
-              icon: Icons.ios_share_rounded,
-              onTap: () {},
-            ),
-          ),
+          //TODO: Share movie on social media
+          // Positioned(
+          //   top: MediaQuery.paddingOf(context).top + 16.h,
+          //   right: horizontalPadding,
+          //   child: _CircleIconButton(
+          //     icon: Icons.ios_share_rounded,
+          //     onTap: () {},
+          //   ),
+          // ),
 
           Positioned(
             left: 0,

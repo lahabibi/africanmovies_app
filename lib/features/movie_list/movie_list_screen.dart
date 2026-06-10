@@ -88,7 +88,7 @@ class MovieListScreen extends StatelessWidget {
                         ageRating: movie.ageRatingLabel,
                         onTap: () => _openMovieDetails(context, movie),
                         onPlayTap: () {},
-                        onMoreTap: () {},
+                        onMoreTap: () => _openMovieDetails(context, movie),
                       );
                     },
                   ),
