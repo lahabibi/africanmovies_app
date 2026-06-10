@@ -69,6 +69,14 @@ class HomeData {
     return continueWatchingOrders.map((order) => order.movie!).toList();
   }
 
+  int get purchasedMovieCount {
+    return orders
+        .where((order) => order.paid && order.movieId.isNotEmpty)
+        .map((order) => order.movieId)
+        .toSet()
+        .length;
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'movies': movies.map((movie) => movie.toJson()).toList(),

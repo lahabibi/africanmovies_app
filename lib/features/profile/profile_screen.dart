@@ -3,6 +3,7 @@ import 'package:africanmovies/features/favorite/application/favorite_controller.
 import 'package:africanmovies/features/profile/about_african_movies_screen.dart';
 import 'package:africanmovies/features/profile/devices_screen.dart';
 import 'package:africanmovies/features/home/widgets/home_header.dart';
+import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/profile/help_support_screen.dart';
 import 'package:africanmovies/features/profile/payment_details_screen.dart';
 import 'package:africanmovies/shared/widgets/app_scaffold.dart';
@@ -149,6 +150,13 @@ class ProfileScreen extends ConsumerWidget {
           loading: () => '...',
           error: (_, _) => '--',
         );
+    final purchasedCountText = ref
+        .watch(homeDataProvider)
+        .when(
+          data: (data) => data.purchasedMovieCount.toString(),
+          loading: () => '...',
+          error: (_, _) => '--',
+        );
 
     return AppScaffold(
       usePadding: true,
@@ -267,7 +275,7 @@ class ProfileScreen extends ConsumerWidget {
                             Expanded(
                               child: ProfileStatItem(
                                 icon: Icons.confirmation_number_outlined,
-                                value: '12',
+                                value: purchasedCountText,
                                 label: 'Purchased Movies',
                               ),
                             ),

@@ -23,13 +23,22 @@ void main() {
           'startWatch': true,
           'paid': true,
         },
+        {
+          '_id': 'order-2',
+          'movieId': 'movie-1',
+          'currentTime': 0,
+          'expiryDate': '2099-01-01T00:00:00.000Z',
+          'startWatch': false,
+          'paid': true,
+        },
       ],
     });
 
-    expect(data.orders, hasLength(1));
+    expect(data.orders, hasLength(2));
     expect(data.orders.first.movie?.title, 'Resume Me');
     expect(data.continueWatchingOrders, hasLength(1));
     expect(data.continueWatchingMovies.single.id, 'movie-1');
     expect(data.continueWatchingOrders.single.progress, greaterThan(0));
+    expect(data.purchasedMovieCount, 1);
   });
 }
