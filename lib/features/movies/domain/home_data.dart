@@ -61,8 +61,34 @@ class HomeData {
         .toList();
   }
 
+  List<HomeOrder> get libraryOrders {
+    return _bestOrdersByMovie(
+      orders.where((order) => order.paid && order.movie != null),
+    );
+  }
+
+  List<HomeOrder> get activeLibraryOrders {
+    return libraryOrders.where((order) => order.hasActiveAccess).toList();
+  }
+
+  List<HomeOrder> get expiredLibraryOrders {
+    return libraryOrders.where((order) => order.isExpired).toList();
+  }
+
+  List<HomeOrder> get expiringSoonOrders {
+    final now = DateTime.now();
+
+    return activeLibraryOrders.where((order) {
+      final expiryDate = order.expiryDate;
+      if (expiryDate == null) return false;
+
+      final remaining = expiryDate.difference(now);
+      return !remaining.isNegative && remaining < const Duration(days: 3);
+    }).toList();
+  }
+
   List<HomeOrder> get continueWatchingOrders {
-    return orders.where((order) => order.isInProgress).toList();
+    return activeLibraryOrders.where((order) => order.isInProgress).toList();
   }
 
   List<Movie> get continueWatchingMovies {
@@ -75,6 +101,22 @@ class HomeData {
         .map((order) => order.movieId)
         .toSet()
         .length;
+  }
+
+  static List<HomeOrder> _bestOrdersByMovie(Iterable<HomeOrder> source) {
+    final ordersByMovie = <String, HomeOrder>{};
+
+    for (final order in source) {
+      final movieId = order.movieId;
+      if (movieId.isEmpty) continue;
+
+      final existing = ordersByMovie[movieId];
+      if (existing == null || order.isBetterLibraryOrderThan(existing)) {
+        ordersByMovie[movieId] = order;
+      }
+    }
+
+    return ordersByMovie.values.toList();
   }
 
   Map<String, dynamic> toJson() {
@@ -184,17 +226,23 @@ class HomeOrder {
 
   bool get isInProgress {
     final movie = this.movie;
-    if (movie == null || currentTime <= 0) return false;
-
-    final expiryDate = this.expiryDate;
-    if (expiryDate != null && !expiryDate.isAfter(DateTime.now())) {
-      return false;
-    }
+    if (!hasActiveAccess || movie == null || currentTime <= 0) return false;
 
     final durationSeconds = movie.duration * 60;
     if (durationSeconds <= 0) return true;
 
     return currentTime < durationSeconds - 8;
+  }
+
+  bool get hasActiveAccess {
+    return paid && movie != null && !isExpired;
+  }
+
+  bool get isExpired {
+    final expiryDate = this.expiryDate;
+    if (expiryDate == null) return false;
+
+    return !expiryDate.isAfter(DateTime.now());
   }
 
   double get progress {
@@ -205,5 +253,20 @@ class HomeOrder {
     if (durationSeconds <= 0) return 0;
 
     return (currentTime / durationSeconds).clamp(0.0, 1.0).toDouble();
+  }
+
+  bool isBetterLibraryOrderThan(HomeOrder other) {
+    if (hasActiveAccess != other.hasActiveAccess) return hasActiveAccess;
+
+    final expiryDate = this.expiryDate;
+    final otherExpiryDate = other.expiryDate;
+
+    if (expiryDate != null && otherExpiryDate != null) {
+      return expiryDate.isAfter(otherExpiryDate);
+    }
+
+    if (expiryDate != null) return true;
+
+    return false;
   }
 }

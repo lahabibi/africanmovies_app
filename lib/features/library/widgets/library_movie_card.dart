@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_radius.dart';
+import '../../../shared/widgets/app_image.dart';
 import '../../../shared/widgets/expiry_badge.dart';
 
 class LibraryMovieCard extends StatelessWidget {
@@ -34,27 +35,17 @@ class LibraryMovieCard extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(AppRadius.sm),
-                border: Border.all(
-                  color: AppColors.cardBorder,
-                  width: .8,
-                ),
+                border: Border.all(color: AppColors.cardBorder, width: .8),
               ),
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: Image.asset(
-                      image,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                  Positioned.fill(child: AppImage(source: image)),
 
                   if (expiryBadgeText != null)
                     Positioned(
                       top: 6.h,
                       left: 6.w,
-                      child: ExpiryBadge(
-                        text: expiryBadgeText!,
-                      ),
+                      child: ExpiryBadge(text: expiryBadgeText!),
                     ),
                 ],
               ),
@@ -92,7 +83,7 @@ class LibraryMovieCard extends StatelessWidget {
             width: double.infinity,
             height: 24.h,
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: onTap,
               icon: Icon(
                 Icons.play_arrow_rounded,
                 size: 14.sp,
@@ -114,10 +105,7 @@ class LibraryMovieCard extends StatelessWidget {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: EdgeInsets.symmetric(horizontal: 8.w),
-                side: BorderSide(
-                  color: AppColors.heroButton,
-                  width: 1,
-                ),
+                side: BorderSide(color: AppColors.heroButton, width: 1),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),

@@ -232,7 +232,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
       ),
       GenresScreen(selectedGenre: _selectedGenre),
       WatchlistScreen(onBrowseMovies: () => _selectTab(0)),
-      const MyLibraryScreen(),
+      MyLibraryScreen(onBrowseMovies: () => _selectTab(0)),
       _profileScreen(),
     ];
 

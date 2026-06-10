@@ -1455,7 +1455,7 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     return homeDataState.maybeWhen(
       data: (data) {
         return data.orders.any(
-          (order) => order.paid && order.movieId == movie.id,
+          (order) => order.movieId == movie.id && order.hasActiveAccess,
         );
       },
       orElse: () => false,
