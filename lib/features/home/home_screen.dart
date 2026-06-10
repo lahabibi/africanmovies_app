@@ -246,7 +246,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       releaseType: movie.releaseType,
                       duration: movie.durationLabel,
                       ageRating: movie.ageRatingLabel,
-                      onWatchNowTap: () {},
+                      onWatchNowTap: () => _openMovieDetails(movie),
                       onTrailerTap: () => _openTrailer(movie),
                     );
                   },

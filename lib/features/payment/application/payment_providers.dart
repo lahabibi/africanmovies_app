@@ -10,6 +10,7 @@ import '../data/flutterwave_payment_gateway.dart';
 import '../data/payment_repository.dart';
 import '../data/payment_preferences_store.dart';
 import '../domain/payment_gateway.dart';
+import '../domain/payment_history.dart';
 import '../domain/payment_intent.dart';
 import '../domain/purchase_result.dart';
 import '../domain/saved_payment_method.dart';
@@ -42,6 +43,10 @@ final saveCardPromptPreferenceControllerProvider =
     AsyncNotifierProvider<SaveCardPromptPreferenceController, bool>(
       SaveCardPromptPreferenceController.new,
     );
+
+final paymentHistoryProvider = FutureProvider<PaymentHistoryResponse>((ref) {
+  return ref.watch(paymentRepositoryProvider).fetchPaymentHistory();
+});
 
 class SaveCardPromptPreferenceController extends AsyncNotifier<bool> {
   @override

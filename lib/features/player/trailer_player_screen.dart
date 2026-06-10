@@ -40,7 +40,8 @@ class TrailerPlayerScreen extends StatefulWidget {
   State<TrailerPlayerScreen> createState() => _TrailerPlayerScreenState();
 }
 
-class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
+class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
+    with WidgetsBindingObserver {
   static const _resumeEndHeadroom = Duration(seconds: 8);
   static const _warmResumeDelay = Duration(milliseconds: 900);
   static const _warmResumeReadinessDelay = Duration(milliseconds: 450);
@@ -80,6 +81,8 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
   int _warmResumeAttempts = 0;
   DateTime? _warmResumeWaitStartedAt;
   bool _progressSaveInFlight = false;
+  bool _isClosing = false;
+  bool _allowRoutePop = false;
   Duration? _lastSavedProgress;
   Duration? _queuedProgressSave;
   DateTime? _lastProgressSaveAt;
@@ -92,6 +95,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addObserver(this);
     _player = Player();
     _controller = VideoController(_player);
     _listenToPlayer();
@@ -117,8 +121,13 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
       _scheduleControlsHide();
     });
 
-    _bufferingSubscription = _player.stream.buffering.listen((_) {
+    _bufferingSubscription = _player.stream.buffering.listen((buffering) {
       if (!mounted) return;
+      if (buffering) {
+        _keepControlsVisible();
+      } else {
+        _scheduleControlsHide();
+      }
       _scheduleWarmResume();
     });
 
@@ -185,6 +194,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controlsTimer?.cancel();
     _errorSubscription?.cancel();
     _completedSubscription?.cancel();
@@ -205,6 +215,16 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(_flushPlaybackProgress());
+    }
+  }
+
   void _toggleControls() {
     if (_fatalErrorMessage != null) return;
 
@@ -214,12 +234,27 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
 
   void _scheduleControlsHide() {
     _controlsTimer?.cancel();
-    if (!_player.state.playing || _fatalErrorMessage != null) return;
+    if (_shouldKeepControlsVisible) return;
 
     _controlsTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
+      if (_shouldKeepControlsVisible) return;
       setState(() => _controlsVisible = false);
     });
+  }
+
+  bool get _shouldKeepControlsVisible {
+    return !_player.state.playing ||
+        _player.state.buffering ||
+        _isOpening ||
+        _fatalErrorMessage != null;
+  }
+
+  void _keepControlsVisible() {
+    _controlsTimer?.cancel();
+    if (_controlsVisible) return;
+
+    setState(() => _controlsVisible = true);
   }
 
   void _showControls() {
@@ -308,6 +343,8 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
   }
 
   Future<void> _handleBack() async {
+    if (_isClosing) return;
+
     final size = MediaQuery.sizeOf(context);
     final isLandscape = size.width > size.height;
 
@@ -318,9 +355,16 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
       return;
     }
 
-    await _flushPlaybackProgress();
+    _isClosing = true;
+
+    try {
+      await _flushPlaybackProgress();
+    } finally {
+      _isClosing = false;
+    }
 
     if (!mounted) return;
+    _allowRoutePop = true;
     Navigator.pop(context);
   }
 
@@ -388,6 +432,8 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
       _isOpening = waitingForResume;
       _fatalErrorMessage = null;
     });
+
+    _scheduleControlsHide();
   }
 
   bool get _hasPendingWarmResume {
@@ -697,49 +743,56 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _toggleControls,
-        behavior: HitTestBehavior.opaque,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Video(
-                controller: _controller,
-                controls: NoVideoControls,
-                fit: BoxFit.contain,
-                fill: Colors.black,
+    return PopScope(
+      canPop: _allowRoutePop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        unawaited(_handleBack());
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          onTap: _toggleControls,
+          behavior: HitTestBehavior.opaque,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Video(
+                  controller: _controller,
+                  controls: NoVideoControls,
+                  fit: BoxFit.contain,
+                  fill: Colors.black,
+                ),
               ),
-            ),
 
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: !_controlsVisible,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 180),
-                  opacity: _controlsVisible ? 1 : 0,
-                  child: _TrailerControlsOverlay(
-                    title: widget.title,
-                    badgeLabel: widget.badgeLabel,
-                    player: _player,
-                    isLoading: _isOpening && _fatalErrorMessage == null,
-                    errorMessage: _fatalErrorMessage,
-                    loadingLabel: widget.loadingLabel,
-                    unavailableTitle: widget.unavailableTitle,
-                    onBack: _handleBack,
-                    onPlayPause: _togglePlayPause,
-                    onSkipBackward: _skipBackward10,
-                    onSkipForward: _skipForward10,
-                    onSeek: _seekTo,
-                    onVolumeChanged: _setVolume,
-                    onMuteTap: _toggleMute,
-                    onOrientationToggle: _toggleOrientation,
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_controlsVisible,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: _controlsVisible ? 1 : 0,
+                    child: _TrailerControlsOverlay(
+                      title: widget.title,
+                      badgeLabel: widget.badgeLabel,
+                      player: _player,
+                      isLoading: _isOpening && _fatalErrorMessage == null,
+                      errorMessage: _fatalErrorMessage,
+                      loadingLabel: widget.loadingLabel,
+                      unavailableTitle: widget.unavailableTitle,
+                      onBack: _handleBack,
+                      onPlayPause: _togglePlayPause,
+                      onSkipBackward: _skipBackward10,
+                      onSkipForward: _skipForward10,
+                      onSeek: _seekTo,
+                      onVolumeChanged: _setVolume,
+                      onMuteTap: _toggleMute,
+                      onOrientationToggle: _toggleOrientation,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -971,11 +1024,8 @@ class _CenterControls extends StatelessWidget {
       builder: (context, bufferingSnapshot) {
         final buffering = bufferingSnapshot.data ?? false;
 
-        if (isLoading || buffering) {
-          return _LoadingControl(
-            metrics: metrics,
-            label: isLoading ? loadingLabel : 'Keeping playback smooth...',
-          );
+        if (isLoading) {
+          return _LoadingControl(metrics: metrics, label: loadingLabel);
         }
 
         return StreamBuilder<bool>(
@@ -984,40 +1034,89 @@ class _CenterControls extends StatelessWidget {
           builder: (context, playingSnapshot) {
             final playing = playingSnapshot.data ?? false;
 
-            return Row(
+            return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _CircleControlButton(
-                  icon: Icons.replay_10_rounded,
-                  semanticLabel: 'Back 10 seconds',
-                  onTap: onSkipBackward,
-                  size: metrics.skipButtonSize,
-                  iconSize: metrics.skipIconSize,
-                ),
-                SizedBox(width: metrics.centerControlGap),
-                _CircleControlButton(
-                  icon: playing
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  semanticLabel: playing ? 'Pause' : 'Play',
-                  onTap: onPlayPause,
-                  size: metrics.primaryButtonSize,
-                  iconSize: metrics.primaryIconSize,
-                  color: AppColors.heroButton,
-                ),
-                SizedBox(width: metrics.centerControlGap),
-                _CircleControlButton(
-                  icon: Icons.forward_10_rounded,
-                  semanticLabel: 'Forward 10 seconds',
-                  onTap: onSkipForward,
-                  size: metrics.skipButtonSize,
-                  iconSize: metrics.skipIconSize,
+                if (buffering) ...[
+                  _BufferingPill(metrics: metrics),
+                  SizedBox(height: metrics.bufferingControlGap),
+                ],
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _CircleControlButton(
+                      icon: Icons.replay_10_rounded,
+                      semanticLabel: 'Back 10 seconds',
+                      onTap: onSkipBackward,
+                      size: metrics.skipButtonSize,
+                      iconSize: metrics.skipIconSize,
+                    ),
+                    SizedBox(width: metrics.centerControlGap),
+                    _CircleControlButton(
+                      icon: playing
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      semanticLabel: playing ? 'Pause' : 'Play',
+                      onTap: onPlayPause,
+                      size: metrics.primaryButtonSize,
+                      iconSize: metrics.primaryIconSize,
+                      color: AppColors.heroButton,
+                    ),
+                    SizedBox(width: metrics.centerControlGap),
+                    _CircleControlButton(
+                      icon: Icons.forward_10_rounded,
+                      semanticLabel: 'Forward 10 seconds',
+                      onTap: onSkipForward,
+                      size: metrics.skipButtonSize,
+                      iconSize: metrics.skipIconSize,
+                    ),
+                  ],
                 ),
               ],
             );
           },
         );
       },
+    );
+  }
+}
+
+class _BufferingPill extends StatelessWidget {
+  final _PlayerControlMetrics metrics;
+
+  const _BufferingPill({required this.metrics});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: metrics.bufferingPadding,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: metrics.bufferingSpinnerSize,
+            height: metrics.bufferingSpinnerSize,
+            child: const CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primary,
+            ),
+          ),
+          SizedBox(width: metrics.bufferingGap),
+          Text(
+            'Loading video...',
+            style: TextStyle(
+              fontSize: metrics.bufferingFontSize,
+              fontWeight: FontWeight.w800,
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1179,6 +1278,7 @@ class _ProgressControls extends StatelessWidget {
                 ? 1.0
                 : duration.inMilliseconds.toDouble();
             final value = _sliderValue(position, duration);
+            final remainingLabel = _remainingLabel(position, duration);
 
             return Column(
               children: [
@@ -1211,7 +1311,15 @@ class _ProgressControls extends StatelessWidget {
                         _formatDuration(position),
                         style: metrics.timeTextStyle,
                       ),
-                      const Spacer(),
+                      Expanded(
+                        child: Text(
+                          remainingLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: metrics.remainingTimeTextStyle,
+                        ),
+                      ),
                       Text(
                         _formatDuration(duration),
                         style: metrics.timeTextStyle,
@@ -1236,6 +1344,15 @@ class _ProgressControls extends StatelessWidget {
     if (positionMs > durationMs) return durationMs.toDouble();
     return positionMs.toDouble();
   }
+}
+
+String _remainingLabel(Duration position, Duration duration) {
+  if (duration <= Duration.zero) return '';
+
+  final remaining = duration - position;
+  if (remaining <= Duration.zero) return 'Ending';
+
+  return '${_formatDuration(remaining)} left';
 }
 
 class _PlayerMessage extends StatelessWidget {
@@ -1396,6 +1513,7 @@ class _PlayerControlMetrics {
   final EdgeInsets screenPadding;
   final EdgeInsets badgePadding;
   final EdgeInsets loadingPadding;
+  final EdgeInsets bufferingPadding;
   final EdgeInsets volumePadding;
   final EdgeInsets timePadding;
   final EdgeInsets messagePadding;
@@ -1413,6 +1531,10 @@ class _PlayerControlMetrics {
   final double loadingSpinnerSize;
   final double loadingGap;
   final double loadingFontSize;
+  final double bufferingSpinnerSize;
+  final double bufferingGap;
+  final double bufferingFontSize;
+  final double bufferingControlGap;
   final double utilityButtonSize;
   final double utilityIconSize;
   final double volumeGap;
@@ -1433,11 +1555,13 @@ class _PlayerControlMetrics {
   final double messageSubtitleFontSize;
   final TextStyle volumeTextStyle;
   final TextStyle timeTextStyle;
+  final TextStyle remainingTimeTextStyle;
 
   const _PlayerControlMetrics({
     required this.screenPadding,
     required this.badgePadding,
     required this.loadingPadding,
+    required this.bufferingPadding,
     required this.volumePadding,
     required this.timePadding,
     required this.messagePadding,
@@ -1455,6 +1579,10 @@ class _PlayerControlMetrics {
     required this.loadingSpinnerSize,
     required this.loadingGap,
     required this.loadingFontSize,
+    required this.bufferingSpinnerSize,
+    required this.bufferingGap,
+    required this.bufferingFontSize,
+    required this.bufferingControlGap,
     required this.utilityButtonSize,
     required this.utilityIconSize,
     required this.volumeGap,
@@ -1475,6 +1603,7 @@ class _PlayerControlMetrics {
     required this.messageSubtitleFontSize,
     required this.volumeTextStyle,
     required this.timeTextStyle,
+    required this.remainingTimeTextStyle,
   });
 
   factory _PlayerControlMetrics.of(BuildContext context) {
@@ -1501,6 +1630,10 @@ class _PlayerControlMetrics {
         horizontal: value(16),
         vertical: value(12),
       ),
+      bufferingPadding: EdgeInsets.symmetric(
+        horizontal: value(10),
+        vertical: value(6),
+      ),
       volumePadding: EdgeInsets.symmetric(
         horizontal: value(8),
         vertical: value(6),
@@ -1521,6 +1654,10 @@ class _PlayerControlMetrics {
       loadingSpinnerSize: value(22),
       loadingGap: value(11),
       loadingFontSize: value(12),
+      bufferingSpinnerSize: value(12),
+      bufferingGap: value(7),
+      bufferingFontSize: value(10),
+      bufferingControlGap: value(12),
       utilityButtonSize: value(32),
       utilityIconSize: value(18),
       volumeGap: value(8),
@@ -1548,6 +1685,11 @@ class _PlayerControlMetrics {
         fontSize: value(11),
         fontWeight: FontWeight.w600,
         color: Colors.white.withValues(alpha: 0.84),
+      ),
+      remainingTimeTextStyle: TextStyle(
+        fontSize: value(10),
+        fontWeight: FontWeight.w800,
+        color: AppColors.primary.withValues(alpha: 0.92),
       ),
     );
   }

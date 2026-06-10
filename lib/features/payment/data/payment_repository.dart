@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/payment_confirmation.dart';
+import '../domain/payment_history.dart';
 import '../domain/payment_intent.dart';
 import '../domain/saved_card_charge_result.dart';
 import '../domain/saved_payment_method.dart';
@@ -141,6 +142,27 @@ class PaymentRepository {
       }
 
       return SavedCardChargeResult.fromJson(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<PaymentHistoryResponse> fetchPaymentHistory({
+    int page = 1,
+    int limit = 50,
+  }) async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/payment/history',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing payment history data');
+      }
+
+      return PaymentHistoryResponse.fromJson(data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

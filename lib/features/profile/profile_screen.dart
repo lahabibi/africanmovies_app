@@ -6,6 +6,7 @@ import 'package:africanmovies/features/home/widgets/home_header.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/profile/help_support_screen.dart';
 import 'package:africanmovies/features/profile/payment_details_screen.dart';
+import 'package:africanmovies/features/profile/purchase_history_screen.dart';
 import 'package:africanmovies/shared/widgets/app_scaffold.dart';
 import 'package:africanmovies/features/profile/widgets/profile_menu_tile.dart';
 import 'package:africanmovies/features/profile/widgets/profile_stat_item.dart';
@@ -59,6 +60,11 @@ class ProfileScreen extends ConsumerWidget {
       icon: Icons.account_balance_wallet_outlined,
       title: 'Payment Details',
       subtitle: 'Manage your saved payment methods',
+    ),
+    _ProfileMenuItem(
+      icon: Icons.receipt_long_outlined,
+      title: 'Purchase History',
+      subtitle: 'Orders, payments, and access status',
     ),
     _ProfileMenuItem(
       icon: Icons.headset_mic_outlined,
@@ -350,6 +356,16 @@ class ProfileScreen extends ConsumerWidget {
                                       MaterialPageRoute(
                                         builder: (_) =>
                                             const PaymentDetailsScreen(),
+                                      ),
+                                    );
+                                    break;
+
+                                  case 'Purchase History':
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const PurchaseHistoryScreen(),
                                       ),
                                     );
                                     break;
