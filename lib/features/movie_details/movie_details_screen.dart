@@ -143,15 +143,20 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     return error.toString();
   }
 
-  Future<void> _handleWatchNow(bool hasAccess) async {
+  Future<void> _handleWatchNow(_MovieAccessState accessState) async {
     if (!_requireAuth(context, ref)) return;
 
-    if (hasAccess) {
-      await _openMoviePlayer();
-      return;
+    switch (accessState) {
+      case _MovieAccessState.active:
+        await _openMoviePlayer();
+      case _MovieAccessState.freeAvailable:
+        final shouldClaim = await _showFreeMovieConfirmation();
+        if (shouldClaim == true && mounted) {
+          await _openMoviePlayer();
+        }
+      case _MovieAccessState.paymentRequired:
+        await _startPurchaseFlow();
     }
-
-    await _startPurchaseFlow();
   }
 
   Future<void> _startPurchaseFlow() async {
@@ -667,6 +672,178 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                     ],
                   ),
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool?> _showFreeMovieConfirmation() {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.62),
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+        final maxWidth = Responsive.isTablet(sheetContext)
+            ? 470.0
+            : double.infinity;
+
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, bottomInset + 14.h),
+              child: Container(
+                padding: EdgeInsets.fromLTRB(18.w, 18.h, 18.w, 16.h),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  border: Border.all(color: AppColors.cardBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.34),
+                      blurRadius: 30.r,
+                      offset: Offset(0, 18.h),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44.w,
+                          height: 44.w,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.heroButton.withValues(alpha: 0.14),
+                            border: Border.all(
+                              color: AppColors.heroButton.withValues(
+                                alpha: 0.36,
+                              ),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.play_circle_outline_rounded,
+                            color: AppColors.heroButton,
+                            size: 24.sp,
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Claim free movie?',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17.sp,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              SizedBox(height: 3.h),
+                              Text(
+                                movie.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12.sp,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 15.h),
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 14.w,
+                        vertical: 12.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.background.withValues(alpha: 0.54),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Today',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            'Free',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
+                    Text(
+                      'We will add this movie to your library and start your watch period when playback opens. Free access can only be claimed once.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12.sp,
+                        height: 1.42,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 18.h),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            text: 'Cancel',
+                            height: 44.h,
+                            fontSize: 13.sp,
+                            borderRadius: AppRadius.sm,
+                            backgroundColor: Colors.transparent,
+                            borderColor: AppColors.cardBorder,
+                            textColor: AppColors.textSecondary,
+                            onPressed: () => Navigator.pop(sheetContext, false),
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: AppButton(
+                            text: 'Claim & Watch',
+                            height: 44.h,
+                            fontSize: 13.sp,
+                            borderRadius: AppRadius.sm,
+                            backgroundColor: AppColors.heroButton,
+                            borderColor: AppColors.heroButton,
+                            icon: Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 17.sp,
+                            ),
+                            onPressed: () => Navigator.pop(sheetContext, true),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -1340,7 +1517,7 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                               isLoading: isPurchasing,
                               onTap: isPurchasing
                                   ? null
-                                  : () => _handleWatchNow(hasAccess),
+                                  : () => _handleWatchNow(accessState),
                             ),
                           ),
                           SizedBox(width: 6.w),

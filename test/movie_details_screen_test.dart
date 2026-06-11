@@ -1,4 +1,6 @@
 import 'package:africanmovies/core/theme/app_theme.dart';
+import 'package:africanmovies/features/auth/application/auth_controller.dart';
+import 'package:africanmovies/features/auth/domain/auth_session.dart';
 import 'package:africanmovies/features/movie_details/movie_details_screen.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/movies/domain/home_data.dart';
@@ -61,6 +63,39 @@ void main() {
     expect(find.text('Claim free access'), findsOneWidget);
   });
 
+  testWidgets('confirms before claiming a free movie', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final movie = _movie(
+      id: 'free-movie',
+      title: 'Free Movie',
+      genre: 'Drama',
+      isFree: true,
+      price: 0.99,
+    );
+
+    await _pumpMovieDetails(
+      tester,
+      movie: movie,
+      movies: [movie],
+      session: _authSession,
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Watch Free'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Claim free movie?'), findsOneWidget);
+    expect(find.text('Claim & Watch'), findsOneWidget);
+    expect(
+      find.textContaining('Free access can only be claimed once'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('shows paid access after free movie claim expires', (
     tester,
   ) async {
@@ -105,10 +140,15 @@ Future<void> _pumpMovieDetails(
   required Movie movie,
   required List<Movie> movies,
   List<HomeOrder> orders = const [],
+  AuthSession? session,
 }) {
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
+        if (session != null)
+          authControllerProvider.overrideWith(
+            () => _TestAuthController(session),
+          ),
         homeDataProvider.overrideWith(
           (_) async =>
               HomeData(movies: movies, genres: const [], orders: orders),
@@ -123,6 +163,20 @@ Future<void> _pumpMovieDetails(
       ),
     ),
   );
+}
+
+const _authSession = AuthSession(
+  token: 'token',
+  user: AuthUser(id: 'user-1', email: 'user@test.com', username: 'User'),
+);
+
+class _TestAuthController extends AuthController {
+  final AuthSession? session;
+
+  _TestAuthController(this.session);
+
+  @override
+  Future<AuthSession?> build() async => session;
 }
 
 Movie _movie({
