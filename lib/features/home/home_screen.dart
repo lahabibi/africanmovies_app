@@ -707,6 +707,7 @@ class _MovieRow extends StatelessWidget {
 
           return SectionMovieCard(
             image: movie.displayPosterUrl,
+            showFreeBadge: movie.isFree,
             onTap: () => onMovieTap(movie),
           );
         },

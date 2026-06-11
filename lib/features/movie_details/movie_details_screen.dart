@@ -320,9 +320,11 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
 
   Future<bool> _isSaveCardPromptHidden() async {
     try {
-      return await ref
-          .read(paymentPreferencesStoreProvider)
-          .isSaveCardPromptHidden();
+      final shouldAsk = await ref.read(
+        saveCardPromptPreferenceControllerProvider.future,
+      );
+
+      return !shouldAsk;
     } catch (_) {
       return false;
     }
@@ -330,7 +332,9 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
 
   Future<void> _hideSaveCardPrompt() async {
     try {
-      await ref.read(paymentPreferencesStoreProvider).hideSaveCardPrompt();
+      await ref
+          .read(saveCardPromptPreferenceControllerProvider.notifier)
+          .setShouldAskAfterCheckout(false);
     } catch (_) {
       if (!mounted) return;
       _showMessage('Could not update card prompt preference.');
