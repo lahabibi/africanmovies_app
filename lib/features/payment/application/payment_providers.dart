@@ -410,7 +410,6 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
   }
 
   Future<void> _refreshHomeData() async {
-    await ref.read(movieRepositoryProvider).fetchHomeData(forceRefresh: true);
     ref.invalidate(homeDataProvider);
     await ref.read(homeDataProvider.future);
   }

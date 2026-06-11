@@ -17,7 +17,7 @@ class MovieRepository {
   }) : _apiClient = apiClient,
        _cacheStore = cacheStore;
 
-  static const _homeDataCacheKey = 'movies.home_data.v2';
+  static const _homeDataCachePrefix = 'movies.home_data.v3.';
   static const _homeDataMaxAge = Duration(minutes: 10);
   static const _searchCachePrefix = 'movies.search.v1.';
   static const _searchMaxAge = Duration(minutes: 5);
@@ -25,8 +25,12 @@ class MovieRepository {
   final ApiClient _apiClient;
   final JsonCacheStore _cacheStore;
 
-  Future<HomeData> fetchHomeData({bool forceRefresh = false}) async {
-    final cached = await _cacheStore.read(_homeDataCacheKey);
+  Future<HomeData> fetchHomeData({
+    bool forceRefresh = false,
+    String cacheOwnerKey = 'guest',
+  }) async {
+    final cacheKey = _homeDataCacheKey(cacheOwnerKey);
+    final cached = await _cacheStore.read(cacheKey);
     final cachedData = _homeDataFromCache(cached);
 
     if (!forceRefresh &&
@@ -46,13 +50,21 @@ class MovieRepository {
       }
 
       final homeData = HomeData.fromJson(data);
-      await _cacheStore.write(_homeDataCacheKey, homeData.toJson());
+      await _cacheStore.write(cacheKey, homeData.toJson());
 
       return homeData;
     } on DioException catch (error) {
       if (cachedData != null) return cachedData;
       throw ApiException.fromDio(error);
     }
+  }
+
+  static String _homeDataCacheKey(String ownerKey) {
+    final normalizedOwnerKey = ownerKey.trim().isEmpty
+        ? 'guest'
+        : ownerKey.trim();
+
+    return '$_homeDataCachePrefix$normalizedOwnerKey';
   }
 
   Future<List<Movie>> searchMovies(
