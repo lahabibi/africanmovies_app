@@ -10,6 +10,7 @@ class PaymentIntent {
   final double amount;
   final String currency;
   final String paymentOptions;
+  final String? storeProductId;
   final String redirectUrl;
   final String publicKey;
   final bool isTestMode;
@@ -23,6 +24,7 @@ class PaymentIntent {
     required this.amount,
     required this.currency,
     required this.paymentOptions,
+    this.storeProductId,
     required this.redirectUrl,
     required this.publicKey,
     required this.isTestMode,
@@ -42,6 +44,9 @@ class PaymentIntent {
       amount: _readDouble(json['amount']),
       currency: json['currency']?.toString() ?? 'USD',
       paymentOptions: json['paymentOptions']?.toString() ?? 'card',
+      storeProductId:
+          _readOptionalCleanString(json['storeProductId']) ??
+          _readOptionalCleanString(json['productId']),
       redirectUrl: json['redirectUrl']?.toString() ?? '',
       publicKey: json['publicKey']?.toString() ?? '',
       isTestMode: json['isTestMode'] == true,
@@ -72,6 +77,12 @@ class PaymentIntent {
   static double _readDouble(Object? value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static String? _readOptionalCleanString(Object? value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
   }
 }
 

@@ -7,6 +7,7 @@ import '../../movies/application/movie_providers.dart';
 import '../../movies/domain/movie.dart';
 import '../../notifications/application/notification_providers.dart';
 import '../data/flutterwave_payment_gateway.dart';
+import '../data/native_store_payment_gateway.dart';
 import '../data/payment_repository.dart';
 import '../data/payment_preferences_store.dart';
 import '../domain/payment_gateway.dart';
@@ -27,6 +28,12 @@ final paymentPreferencesStoreProvider = Provider<PaymentPreferencesStore>((
 
 final paymentGatewayProvider = Provider<PaymentGateway>((ref) {
   return FlutterwavePaymentGateway();
+});
+
+final nativeStorePaymentGatewayProvider = Provider<NativeStorePaymentGateway>((
+  ref,
+) {
+  return NativeStorePaymentGateway();
 });
 
 final purchaseControllerProvider =
@@ -340,14 +347,14 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         GatewayPaymentResult(
           status: GatewayPaymentStatus.failed,
           txRef: intent.txRef,
-          message: 'Apple in-app purchase is not enabled yet.',
+          message: 'Apple in-app purchase verification is not enabled yet.',
         ),
       ),
       PaymentMethod.googlePlay => Future.value(
         GatewayPaymentResult(
           status: GatewayPaymentStatus.failed,
           txRef: intent.txRef,
-          message: 'Google Play Billing is not enabled yet.',
+          message: 'Google Play Billing verification is not enabled yet.',
         ),
       ),
       PaymentMethod.none => Future.value(
