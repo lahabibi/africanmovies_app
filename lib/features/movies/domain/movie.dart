@@ -1,5 +1,7 @@
 class Movie {
   final String id;
+  final String? movieSku;
+  final MovieStoreProducts storeProducts;
   final String title;
   final String genre;
   final String? rating;
@@ -29,6 +31,8 @@ class Movie {
 
   const Movie({
     required this.id,
+    this.movieSku,
+    this.storeProducts = const MovieStoreProducts(),
     required this.title,
     required this.genre,
     this.rating,
@@ -60,6 +64,8 @@ class Movie {
   factory Movie.fromJson(Map<String, dynamic> json) {
     return Movie(
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+      movieSku: _readOptionalCleanString(json['movieSku']),
+      storeProducts: MovieStoreProducts.fromJson(json['storeProducts']),
       title: json['title']?.toString() ?? 'Untitled',
       genre: json['genre']?.toString() ?? '',
       rating: json['rating']?.toString(),
@@ -143,6 +149,8 @@ class Movie {
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
+      'movieSku': movieSku,
+      'storeProducts': storeProducts.toJson(),
       'title': title,
       'genre': genre,
       'rating': rating,
@@ -188,8 +196,97 @@ class Movie {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
+  static String? _readOptionalCleanString(Object? value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
+  }
+
   static List<String> _readStringList(Object? value) {
     if (value is! List) return const [];
     return value.map((item) => item.toString()).toList();
+  }
+}
+
+enum StoreProductRegistrationStatus { notRegistered, registered, syncFailed }
+
+class MovieStoreProducts {
+  final MovieStoreProduct? ios;
+  final MovieStoreProduct? android;
+
+  const MovieStoreProducts({this.ios, this.android});
+
+  factory MovieStoreProducts.fromJson(Object? value) {
+    if (value is! Map) return const MovieStoreProducts();
+
+    return MovieStoreProducts(
+      ios: MovieStoreProduct.fromJson(value['ios']),
+      android: MovieStoreProduct.fromJson(value['android']),
+    );
+  }
+
+  String? get iosProductId => ios?.productId;
+
+  String? get androidProductId => android?.productId;
+
+  bool get hasAnyProductId {
+    return iosProductId != null || androidProductId != null;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'ios': ios?.toJson(), 'android': android?.toJson()};
+  }
+}
+
+class MovieStoreProduct {
+  final String productId;
+  final String productType;
+  final StoreProductRegistrationStatus registrationStatus;
+  final DateTime? lastSyncedAt;
+  final String? errorMessage;
+
+  const MovieStoreProduct({
+    required this.productId,
+    required this.productType,
+    required this.registrationStatus,
+    this.lastSyncedAt,
+    this.errorMessage,
+  });
+
+  static MovieStoreProduct? fromJson(Object? value) {
+    if (value is! Map) return null;
+
+    final productId = value['productId']?.toString().trim() ?? '';
+    if (productId.isEmpty) return null;
+
+    return MovieStoreProduct(
+      productId: productId,
+      productType: value['productType']?.toString() ?? 'consumable',
+      registrationStatus: _readRegistrationStatus(value['registrationStatus']),
+      lastSyncedAt: DateTime.tryParse(value['lastSyncedAt']?.toString() ?? ''),
+      errorMessage: Movie._readOptionalCleanString(value['errorMessage']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'productId': productId,
+      'productType': productType,
+      'registrationStatus': switch (registrationStatus) {
+        StoreProductRegistrationStatus.registered => 'registered',
+        StoreProductRegistrationStatus.syncFailed => 'sync_failed',
+        StoreProductRegistrationStatus.notRegistered => 'not_registered',
+      },
+      'lastSyncedAt': lastSyncedAt?.toIso8601String(),
+      'errorMessage': errorMessage,
+    };
+  }
+
+  static StoreProductRegistrationStatus _readRegistrationStatus(Object? value) {
+    return switch (value?.toString()) {
+      'registered' => StoreProductRegistrationStatus.registered,
+      'sync_failed' => StoreProductRegistrationStatus.syncFailed,
+      _ => StoreProductRegistrationStatus.notRegistered,
+    };
   }
 }
