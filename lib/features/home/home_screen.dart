@@ -156,13 +156,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final headerHeight = Responsive.headerHeight(context);
     final homeData = ref.watch(homeDataProvider);
+    final showHeader = homeData.hasValue || homeData.hasError;
 
     return AppScaffold(
       usePadding: true,
       child: Stack(
         children: [
           Padding(
-            padding: EdgeInsets.only(top: headerHeight),
+            padding: EdgeInsets.only(top: showHeader ? headerHeight : 0),
             child: homeData.when(
               data: _buildHomeContent,
               error: (error, _) => _HomeErrorView(
@@ -173,12 +174,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SizedBox(height: headerHeight, child: const HomeHeader()),
-          ),
+          if (showHeader)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SizedBox(height: headerHeight, child: const HomeHeader()),
+            ),
         ],
       ),
     );

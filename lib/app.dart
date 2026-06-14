@@ -1,6 +1,7 @@
 import 'package:africanmovies/features/main/main_screen.dart';
 import 'package:africanmovies/shared/widgets/auth_session_gate.dart';
 import 'package:africanmovies/shared/widgets/network_gate.dart';
+import 'package:africanmovies/shared/widgets/startup_splash.dart';
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/responsive.dart';
@@ -30,7 +31,7 @@ class AfricanMoviesApp extends StatelessWidget {
           home: child,
         );
       },
-      child: const MainScreen(),
+      child: const StartupSplash(child: MainScreen()),
     );
   }
 }

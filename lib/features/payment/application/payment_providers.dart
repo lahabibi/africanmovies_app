@@ -190,6 +190,14 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         return result;
       }
 
+      if (_isNativePaymentMethod(intent.method)) {
+        return _confirmNativePurchase(
+          movie: movie,
+          intent: intent,
+          gatewayResult: gatewayResult,
+        );
+      }
+
       final confirmation = await ref
           .read(paymentRepositoryProvider)
           .confirmFlutterwavePayment(
@@ -343,13 +351,10 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         ref
             .read(paymentGatewayProvider)
             .charge(context: context, intent: intent),
-      PaymentMethod.storeKit => Future.value(
-        GatewayPaymentResult(
-          status: GatewayPaymentStatus.failed,
-          txRef: intent.txRef,
-          message: 'Apple in-app purchase verification is not enabled yet.',
-        ),
-      ),
+      PaymentMethod.storeKit =>
+        ref
+            .read(nativeStorePaymentGatewayProvider)
+            .charge(context: context, intent: intent),
       PaymentMethod.googlePlay => Future.value(
         GatewayPaymentResult(
           status: GatewayPaymentStatus.failed,
@@ -365,6 +370,11 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         ),
       ),
     };
+  }
+
+  bool _isNativePaymentMethod(PaymentMethod method) {
+    return method == PaymentMethod.storeKit ||
+        method == PaymentMethod.googlePlay;
   }
 
   Future<void> _refreshAfterPurchase(Movie movie) async {
@@ -411,6 +421,57 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       txRef: normalizedTxRef,
       transactionId: normalizedTransactionId,
       paymentType: 'saved_card',
+    );
+    state = AsyncData(result);
+    return result;
+  }
+
+  Future<PurchaseResult> _confirmNativePurchase({
+    required Movie movie,
+    required PaymentIntent intent,
+    required GatewayPaymentResult gatewayResult,
+  }) async {
+    final verificationData = gatewayResult.nativeVerificationData;
+    if (verificationData == null) {
+      final result = PurchaseResult.failed(
+        'Store verification details were missing. Please try again.',
+      );
+      state = AsyncData(result);
+      return result;
+    }
+
+    final confirmation = await ref
+        .read(paymentRepositoryProvider)
+        .verifyNativePurchase(
+          movieId: movie.id,
+          intent: intent,
+          verificationData: verificationData,
+        );
+
+    if (!confirmation.isSuccessful) {
+      final result = PurchaseResult.failed(
+        'Payment could not be verified. Please try again.',
+      );
+      state = AsyncData(result);
+      return result;
+    }
+
+    try {
+      await ref
+          .read(nativeStorePaymentGatewayProvider)
+          .completePurchase(verificationData.completionKey);
+    } catch (_) {
+      // Access is already granted by the backend. StoreKit will redeliver the
+      // transaction later if completion fails, so do not show a false failure.
+    }
+
+    await _refreshAfterPurchase(movie);
+
+    final result = PurchaseResult.success(
+      txRef: gatewayResult.txRef,
+      transactionId:
+          gatewayResult.transactionId ?? verificationData.completionKey,
+      paymentType: confirmation.paymentType,
     );
     state = AsyncData(result);
     return result;

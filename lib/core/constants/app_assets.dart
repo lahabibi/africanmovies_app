@@ -2,6 +2,8 @@ class AppAssets {
   //images
   static const logo = 'assets/images/img_logo.png';
 
+  static const splashLogo = 'assets/images/img_logo_2.png';
+
   static const profile = 'assets/images/img_profile.jpg';
 
   static const poster1 = 'assets/images/img_poster1.png';

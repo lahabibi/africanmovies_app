@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/payment_confirmation.dart';
+import '../domain/payment_gateway.dart';
 import '../domain/payment_history.dart';
 import '../domain/payment_intent.dart';
 import '../domain/saved_card_charge_result.dart';
@@ -22,7 +24,7 @@ class PaymentRepository {
     try {
       final response = await _apiClient.post<Map<String, dynamic>>(
         '/payment/mobile/initialize',
-        data: {'movieId': normalizedMovieId},
+        data: {'movieId': normalizedMovieId, 'platform': _nativePlatform},
       );
 
       final data = response.data;
@@ -59,6 +61,40 @@ class PaymentRepository {
       final data = response.data;
       if (data == null) {
         throw const ApiException('Missing payment verification data');
+      }
+
+      return PaymentConfirmation.fromJson(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<PaymentConfirmation> verifyNativePurchase({
+    required String movieId,
+    required PaymentIntent intent,
+    required NativePurchaseVerificationData verificationData,
+  }) async {
+    final normalizedMovieId = movieId.trim();
+    final platform = _platformFor(intent.method);
+
+    if (normalizedMovieId.isEmpty || platform == null) {
+      throw const ApiException('Missing native payment verification details');
+    }
+
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/payment/native/verify',
+        data: {
+          'txRef': intent.txRef,
+          'movieId': normalizedMovieId,
+          'platform': platform,
+          ...verificationData.toJson(),
+        },
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing native payment verification data');
       }
 
       return PaymentConfirmation.fromJson(data);
@@ -166,5 +202,21 @@ class PaymentRepository {
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
+  }
+
+  String? get _nativePlatform {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.iOS => 'ios',
+      TargetPlatform.android => 'android',
+      _ => null,
+    };
+  }
+
+  String? _platformFor(PaymentMethod method) {
+    return switch (method) {
+      PaymentMethod.storeKit => 'ios',
+      PaymentMethod.googlePlay => 'android',
+      _ => null,
+    };
   }
 }

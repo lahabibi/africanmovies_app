@@ -91,7 +91,7 @@ class NativeStorePaymentGateway implements PaymentGateway {
 
     final purchaseStarted = await _inAppPurchase.buyConsumable(
       purchaseParam: PurchaseParam(productDetails: productDetails),
-      autoConsume: true,
+      autoConsume: intent.method != PaymentMethod.googlePlay,
     );
     if (!purchaseStarted) {
       await subscription.cancel();
