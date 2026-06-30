@@ -355,13 +355,10 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         ref
             .read(nativeStorePaymentGatewayProvider)
             .charge(context: context, intent: intent),
-      PaymentMethod.googlePlay => Future.value(
-        GatewayPaymentResult(
-          status: GatewayPaymentStatus.failed,
-          txRef: intent.txRef,
-          message: 'Google Play Billing verification is not enabled yet.',
-        ),
-      ),
+      PaymentMethod.googlePlay =>
+        ref
+            .read(nativeStorePaymentGatewayProvider)
+            .charge(context: context, intent: intent),
       PaymentMethod.none => Future.value(
         GatewayPaymentResult(
           status: GatewayPaymentStatus.failed,

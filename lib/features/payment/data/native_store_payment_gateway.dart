@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
@@ -22,6 +23,7 @@ class NativeStorePaymentGateway implements PaymentGateway {
     required BuildContext context,
     required PaymentIntent intent,
   }) async {
+    final storeLabel = _storeLabelFor(intent.method);
     final productId = intent.storeProductId?.trim() ?? '';
     if (productId.isEmpty) {
       return GatewayPaymentResult(
@@ -31,7 +33,18 @@ class NativeStorePaymentGateway implements PaymentGateway {
       );
     }
 
-    final isAvailable = await _inAppPurchase.isAvailable();
+    final bool isAvailable;
+    try {
+      isAvailable = await _inAppPurchase.isAvailable();
+    } on PlatformException catch (error) {
+      _logNativeStoreError(storeLabel, 'isAvailable', error, productId);
+      return GatewayPaymentResult(
+        status: GatewayPaymentStatus.failed,
+        txRef: intent.txRef,
+        message: _nativeStorePlatformMessage(storeLabel, error),
+      );
+    }
+
     if (!isAvailable) {
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
@@ -40,11 +53,25 @@ class NativeStorePaymentGateway implements PaymentGateway {
       );
     }
 
-    final productResponse = await _inAppPurchase.queryProductDetails({
-      productId,
-    });
+    final ProductDetailsResponse productResponse;
+    try {
+      productResponse = await _inAppPurchase.queryProductDetails({productId});
+    } on PlatformException catch (error) {
+      _logNativeStoreError(storeLabel, 'queryProductDetails', error, productId);
+      return GatewayPaymentResult(
+        status: GatewayPaymentStatus.failed,
+        txRef: intent.txRef,
+        message: _nativeStorePlatformMessage(storeLabel, error),
+      );
+    }
+
     final productError = productResponse.error;
     if (productError != null) {
+      debugPrint(
+        '[$storeLabel] queryProductDetails error '
+        'productId=$productId code=${productError.code} '
+        'message=${productError.message} details=${productError.details}',
+      );
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -58,6 +85,10 @@ class NativeStorePaymentGateway implements PaymentGateway {
     );
     if (productDetails == null ||
         productResponse.notFoundIDs.contains(productId)) {
+      debugPrint(
+        '[$storeLabel] product not found productId=$productId '
+        'notFoundIDs=${productResponse.notFoundIDs}',
+      );
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -89,10 +120,22 @@ class NativeStorePaymentGateway implements PaymentGateway {
       },
     );
 
-    final purchaseStarted = await _inAppPurchase.buyConsumable(
-      purchaseParam: PurchaseParam(productDetails: productDetails),
-      autoConsume: intent.method != PaymentMethod.googlePlay,
-    );
+    final bool purchaseStarted;
+    try {
+      purchaseStarted = await _inAppPurchase.buyConsumable(
+        purchaseParam: PurchaseParam(productDetails: productDetails),
+        autoConsume: intent.method != PaymentMethod.googlePlay,
+      );
+    } on PlatformException catch (error) {
+      await subscription.cancel();
+      _logNativeStoreError(storeLabel, 'buyConsumable', error, productId);
+      return GatewayPaymentResult(
+        status: GatewayPaymentStatus.failed,
+        txRef: intent.txRef,
+        message: _nativeStorePlatformMessage(storeLabel, error),
+      );
+    }
+
     if (!purchaseStarted) {
       await subscription.cancel();
       return GatewayPaymentResult(
@@ -215,5 +258,37 @@ class NativeStorePaymentGateway implements PaymentGateway {
       purchase.verificationData.source,
       purchase.verificationData.serverVerificationData.hashCode,
     ].join(':');
+  }
+
+  String _storeLabelFor(PaymentMethod method) {
+    return switch (method) {
+      PaymentMethod.storeKit => 'StoreKit',
+      PaymentMethod.googlePlay => 'Google Play Billing',
+      _ => 'Native Store',
+    };
+  }
+
+  void _logNativeStoreError(
+    String storeLabel,
+    String action,
+    PlatformException error,
+    String productId,
+  ) {
+    debugPrint(
+      '[$storeLabel] $action failed productId=$productId '
+      'code=${error.code} message=${error.message} details=${error.details}',
+    );
+  }
+
+  String _nativeStorePlatformMessage(
+    String storeLabel,
+    PlatformException error,
+  ) {
+    final message = error.message?.trim();
+    if (message != null && message.isNotEmpty) {
+      return '$storeLabel could not respond: $message';
+    }
+
+    return '$storeLabel could not respond. Confirm the store test account, in-app purchase setup, and product ID, then try again.';
   }
 }
