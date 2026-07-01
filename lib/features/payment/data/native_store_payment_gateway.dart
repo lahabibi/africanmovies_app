@@ -203,10 +203,18 @@ class NativeStorePaymentGateway implements PaymentGateway {
     if (completer.isCompleted) return;
 
     for (final purchase in purchases) {
-      if (purchase.productID != productId) continue;
+      final isProductlessTerminalUpdate =
+          purchase.productID.isEmpty &&
+          (purchase.status == PurchaseStatus.canceled ||
+              purchase.status == PurchaseStatus.error);
+
+      if (purchase.productID != productId && !isProductlessTerminalUpdate) {
+        continue;
+      }
 
       debugPrint(
         '[$storeLabel] purchase update productId=${purchase.productID} '
+        'expectedProductId=$productId '
         'status=${purchase.status.name} purchaseId=${purchase.purchaseID} '
         'errorCode=${purchase.error?.code} '
         'errorMessage=${purchase.error?.message} '

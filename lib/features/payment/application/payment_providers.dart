@@ -157,6 +157,10 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       }
 
       if (!context.mounted) {
+        await _closeNativePurchaseAttempt(
+          intent: intent,
+          providerStatus: 'cancelled',
+        );
         final result = PurchaseResult.cancelled();
         state = AsyncData(result);
         return result;
@@ -168,12 +172,20 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       );
 
       if (gatewayResult.status == GatewayPaymentStatus.cancelled) {
+        await _closeNativePurchaseAttempt(
+          intent: intent,
+          providerStatus: 'cancelled',
+        );
         final result = PurchaseResult.cancelled();
         state = AsyncData(result);
         return result;
       }
 
       if (!gatewayResult.isCompleted) {
+        await _closeNativePurchaseAttempt(
+          intent: intent,
+          providerStatus: 'failed',
+        );
         final result = PurchaseResult.failed(
           gatewayResult.message ?? 'Payment could not be completed.',
         );
@@ -372,6 +384,32 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
   bool _isNativePaymentMethod(PaymentMethod method) {
     return method == PaymentMethod.storeKit ||
         method == PaymentMethod.googlePlay;
+  }
+
+  Future<void> _closeNativePurchaseAttempt({
+    required PaymentIntent intent,
+    required String providerStatus,
+  }) async {
+    if (!_isNativePaymentMethod(intent.method)) return;
+
+    try {
+      debugPrint(
+        '[NativePayment] closing txRef=${intent.txRef} '
+        'providerStatus=$providerStatus',
+      );
+      await ref
+          .read(paymentRepositoryProvider)
+          .closeNativePurchaseAttempt(
+            txRef: intent.txRef,
+            providerStatus: providerStatus,
+          );
+      debugPrint('[NativePayment] closed txRef=${intent.txRef}');
+    } catch (error) {
+      debugPrint(
+        '[NativePayment] close failed txRef=${intent.txRef} error=$error',
+      );
+      // Cleanup is best-effort and must not replace the store result shown.
+    }
   }
 
   Future<void> _refreshAfterPurchase(Movie movie) async {

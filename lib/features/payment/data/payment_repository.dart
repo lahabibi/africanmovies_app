@@ -103,6 +103,23 @@ class PaymentRepository {
     }
   }
 
+  Future<void> closeNativePurchaseAttempt({
+    required String txRef,
+    required String providerStatus,
+  }) async {
+    final normalizedTxRef = txRef.trim();
+    if (normalizedTxRef.isEmpty) return;
+
+    try {
+      await _apiClient.post<Map<String, dynamic>>(
+        '/payment/native/close',
+        data: {'txRef': normalizedTxRef, 'providerStatus': providerStatus},
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<SavedPaymentMethod?> fetchSavedPaymentMethod() async {
     try {
       final response = await _apiClient.get<Map<String, dynamic>>(
