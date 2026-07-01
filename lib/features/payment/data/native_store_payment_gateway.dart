@@ -105,10 +105,12 @@ class NativeStorePaymentGateway implements PaymentGateway {
           purchases: purchases,
           productId: productId,
           txRef: intent.txRef,
+          storeLabel: storeLabel,
           completer: completer,
         );
       },
       onError: (Object error) {
+        debugPrint('[$storeLabel] purchase stream error: $error');
         if (completer.isCompleted) return;
         completer.complete(
           GatewayPaymentResult(
@@ -195,12 +197,21 @@ class NativeStorePaymentGateway implements PaymentGateway {
     required List<PurchaseDetails> purchases,
     required String productId,
     required String txRef,
+    required String storeLabel,
     required Completer<GatewayPaymentResult> completer,
   }) {
     if (completer.isCompleted) return;
 
     for (final purchase in purchases) {
       if (purchase.productID != productId) continue;
+
+      debugPrint(
+        '[$storeLabel] purchase update productId=${purchase.productID} '
+        'status=${purchase.status.name} purchaseId=${purchase.purchaseID} '
+        'errorCode=${purchase.error?.code} '
+        'errorMessage=${purchase.error?.message} '
+        'errorDetails=${purchase.error?.details}',
+      );
 
       switch (purchase.status) {
         case PurchaseStatus.pending:
