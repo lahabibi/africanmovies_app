@@ -75,7 +75,12 @@ class NativeStorePaymentGateway implements PaymentGateway {
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
-        message: productError.message,
+        message: _friendlyStoreFailureMessage(
+          storeLabel: storeLabel,
+          code: productError.code,
+          message: productError.message,
+          details: productError.details,
+        ),
       );
     }
 
@@ -258,9 +263,13 @@ class NativeStorePaymentGateway implements PaymentGateway {
             GatewayPaymentResult(
               status: GatewayPaymentStatus.failed,
               txRef: txRef,
-              message:
-                  purchase.error?.message ??
-                  'In-app purchase could not be completed.',
+              message: _friendlyStoreFailureMessage(
+                storeLabel: storeLabel,
+                code: purchase.error?.code,
+                message: purchase.error?.message,
+                details: purchase.error?.details,
+                duringCheckout: true,
+              ),
             ),
           );
       }
@@ -303,11 +312,53 @@ class NativeStorePaymentGateway implements PaymentGateway {
     String storeLabel,
     PlatformException error,
   ) {
-    final message = error.message?.trim();
-    if (message != null && message.isNotEmpty) {
-      return '$storeLabel could not respond: $message';
+    return _friendlyStoreFailureMessage(
+      storeLabel: storeLabel,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    );
+  }
+
+  String _friendlyStoreFailureMessage({
+    required String storeLabel,
+    String? code,
+    String? message,
+    Object? details,
+    bool duringCheckout = false,
+  }) {
+    final diagnostic = [
+      code,
+      message,
+      details?.toString(),
+    ].whereType<String>().join(' ').toLowerCase();
+
+    if (diagnostic.contains('declin') || diagnostic.contains('denied')) {
+      return 'Your payment was declined. Please choose another payment method and try again.';
     }
 
-    return '$storeLabel could not respond. Confirm the store test account, in-app purchase setup, and product ID, then try again.';
+    if (diagnostic.contains('network')) {
+      return 'We could not reach the store. Check your connection and try again.';
+    }
+
+    if (diagnostic.contains('itemalreadyowned') ||
+        diagnostic.contains('item already owned')) {
+      return 'This purchase is already being processed. Please refresh your library and try again.';
+    }
+
+    if (duringCheckout &&
+        (diagnostic.contains('billingunavailable') ||
+            diagnostic.contains('billing_unavailable'))) {
+      return 'We could not complete this payment. Please choose another payment method or try again.';
+    }
+
+    if (diagnostic.contains('billingunavailable') ||
+        diagnostic.contains('billing_unavailable') ||
+        diagnostic.contains('serviceunavailable') ||
+        diagnostic.contains('storekit_no_response')) {
+      return '$storeLabel is temporarily unavailable. Please try again shortly.';
+    }
+
+    return 'Payment could not be completed. Please try again or choose another payment method.';
   }
 }
