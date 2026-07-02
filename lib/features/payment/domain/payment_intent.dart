@@ -11,6 +11,9 @@ class PaymentIntent {
   final String currency;
   final String paymentOptions;
   final String? storeProductId;
+  final String? storeAccountId;
+  final bool awaitingStoreConfirmation;
+  final bool reused;
   final String redirectUrl;
   final String publicKey;
   final bool isTestMode;
@@ -25,6 +28,9 @@ class PaymentIntent {
     required this.currency,
     required this.paymentOptions,
     this.storeProductId,
+    this.storeAccountId,
+    required this.awaitingStoreConfirmation,
+    required this.reused,
     required this.redirectUrl,
     required this.publicKey,
     required this.isTestMode,
@@ -47,6 +53,9 @@ class PaymentIntent {
       storeProductId:
           _readOptionalCleanString(json['storeProductId']) ??
           _readOptionalCleanString(json['productId']),
+      storeAccountId: _readOptionalCleanString(json['storeAccountId']),
+      awaitingStoreConfirmation: json['awaitingStoreConfirmation'] == true,
+      reused: json['reused'] == true,
       redirectUrl: json['redirectUrl']?.toString() ?? '',
       publicKey: json['publicKey']?.toString() ?? '',
       isTestMode: json['isTestMode'] == true,

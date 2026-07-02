@@ -7,6 +7,7 @@ import '../domain/payment_confirmation.dart';
 import '../domain/payment_gateway.dart';
 import '../domain/payment_history.dart';
 import '../domain/payment_intent.dart';
+import '../domain/pending_native_purchase.dart';
 import '../domain/saved_card_charge_result.dart';
 import '../domain/saved_payment_method.dart';
 
@@ -115,6 +116,38 @@ class PaymentRepository {
         '/payment/native/close',
         data: {'txRef': normalizedTxRef, 'providerStatus': providerStatus},
       );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<PaymentConfirmation> recoverNativePurchase({
+    PendingNativePurchase? attempt,
+    NativePurchaseVerificationData? verificationData,
+  }) async {
+    if (attempt == null && verificationData == null) {
+      throw const ApiException('Missing native purchase recovery details');
+    }
+
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/payment/native/recover',
+        data: {
+          if (attempt != null) ...{
+            'txRef': attempt.txRef,
+            'movieId': attempt.movieId,
+            'productId': attempt.productId,
+          },
+          if (verificationData != null) ...verificationData.toJson(),
+        },
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing native purchase recovery data');
+      }
+
+      return PaymentConfirmation.fromJson(data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

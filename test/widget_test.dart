@@ -23,7 +23,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 1500));
 
     expect(find.text('Home'), findsAtLeastNWidgets(1));
     expect(find.text('Genres'), findsAtLeastNWidgets(1));

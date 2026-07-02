@@ -130,7 +130,10 @@ class NativeStorePaymentGateway implements PaymentGateway {
     final bool purchaseStarted;
     try {
       purchaseStarted = await _inAppPurchase.buyConsumable(
-        purchaseParam: PurchaseParam(productDetails: productDetails),
+        purchaseParam: PurchaseParam(
+          productDetails: productDetails,
+          applicationUserName: intent.storeAccountId,
+        ),
         autoConsume: intent.method != PaymentMethod.googlePlay,
       );
     } on PlatformException catch (error) {
@@ -156,9 +159,10 @@ class NativeStorePaymentGateway implements PaymentGateway {
       _purchaseTimeout,
       onTimeout: () {
         return GatewayPaymentResult(
-          status: GatewayPaymentStatus.failed,
+          status: GatewayPaymentStatus.pending,
           txRef: intent.txRef,
-          message: 'The store is taking too long to respond. Please try again.',
+          message:
+              'Your payment is awaiting confirmation. We will update your library automatically.',
         );
       },
     );
@@ -228,7 +232,14 @@ class NativeStorePaymentGateway implements PaymentGateway {
 
       switch (purchase.status) {
         case PurchaseStatus.pending:
-          break;
+          completer.complete(
+            GatewayPaymentResult(
+              status: GatewayPaymentStatus.pending,
+              txRef: txRef,
+              transactionId: purchase.purchaseID,
+              nativeVerificationData: _verificationDataFor(purchase),
+            ),
+          );
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
           final completionKey = _completionKeyFor(purchase);
@@ -238,17 +249,7 @@ class NativeStorePaymentGateway implements PaymentGateway {
               status: GatewayPaymentStatus.completed,
               txRef: txRef,
               transactionId: purchase.purchaseID ?? completionKey,
-              nativeVerificationData: NativePurchaseVerificationData(
-                completionKey: completionKey,
-                productId: purchase.productID,
-                purchaseId: purchase.purchaseID,
-                transactionDate: purchase.transactionDate,
-                source: purchase.verificationData.source,
-                localVerificationData:
-                    purchase.verificationData.localVerificationData,
-                serverVerificationData:
-                    purchase.verificationData.serverVerificationData,
-              ),
+              nativeVerificationData: _verificationDataFor(purchase),
             ),
           );
         case PurchaseStatus.canceled:
@@ -286,6 +287,20 @@ class NativeStorePaymentGateway implements PaymentGateway {
       purchase.verificationData.source,
       purchase.verificationData.serverVerificationData.hashCode,
     ].join(':');
+  }
+
+  NativePurchaseVerificationData _verificationDataFor(
+    PurchaseDetails purchase,
+  ) {
+    return NativePurchaseVerificationData(
+      completionKey: _completionKeyFor(purchase),
+      productId: purchase.productID,
+      purchaseId: purchase.purchaseID,
+      transactionDate: purchase.transactionDate,
+      source: purchase.verificationData.source,
+      localVerificationData: purchase.verificationData.localVerificationData,
+      serverVerificationData: purchase.verificationData.serverVerificationData,
+    );
   }
 
   String _storeLabelFor(PaymentMethod method) {

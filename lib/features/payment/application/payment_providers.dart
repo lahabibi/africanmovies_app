@@ -3,16 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../auth/application/auth_controller.dart';
 import '../../movies/application/movie_providers.dart';
 import '../../movies/domain/movie.dart';
 import '../../notifications/application/notification_providers.dart';
 import '../data/flutterwave_payment_gateway.dart';
 import '../data/native_store_payment_gateway.dart';
+import '../data/pending_native_purchase_store.dart';
 import '../data/payment_repository.dart';
 import '../data/payment_preferences_store.dart';
 import '../domain/payment_gateway.dart';
 import '../domain/payment_history.dart';
+import '../domain/payment_confirmation.dart';
 import '../domain/payment_intent.dart';
+import '../domain/pending_native_purchase.dart';
 import '../domain/purchase_result.dart';
 import '../domain/saved_payment_method.dart';
 
@@ -25,6 +29,14 @@ final paymentPreferencesStoreProvider = Provider<PaymentPreferencesStore>((
 ) {
   return PaymentPreferencesStore();
 });
+
+final pendingNativePurchaseStoreProvider = Provider<PendingNativePurchaseStore>(
+  (ref) {
+    return PendingNativePurchaseStore(
+      cacheStore: ref.watch(jsonCacheStoreProvider),
+    );
+  },
+);
 
 final paymentGatewayProvider = Provider<PaymentGateway>((ref) {
   return FlutterwavePaymentGateway();
@@ -121,6 +133,10 @@ class SavedPaymentMethodController extends AsyncNotifier<SavedPaymentMethod?> {
 }
 
 class PurchaseController extends AsyncNotifier<PurchaseResult?> {
+  bool _isPurchaseInProgress = false;
+
+  bool get isPurchaseInProgress => _isPurchaseInProgress;
+
   @override
   Future<PurchaseResult?> build() async {
     return null;
@@ -130,10 +146,11 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     required BuildContext context,
     required Movie movie,
   }) async {
-    if (state.isLoading) {
+    if (_isPurchaseInProgress) {
       return PurchaseResult.failed('Payment is already in progress.');
     }
 
+    _isPurchaseInProgress = true;
     state = const AsyncLoading();
 
     try {
@@ -154,6 +171,18 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         await _refreshHomeData();
         state = AsyncData(result);
         return result;
+      }
+
+      final pendingAttempt = await _savePendingNativeAttempt(
+        movie: movie,
+        intent: intent,
+      );
+
+      if (intent.awaitingStoreConfirmation && pendingAttempt != null) {
+        return _recoverExistingNativeAttempt(
+          movie: movie,
+          attempt: pendingAttempt,
+        );
       }
 
       if (!context.mounted) {
@@ -179,6 +208,14 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         final result = PurchaseResult.cancelled();
         state = AsyncData(result);
         return result;
+      }
+
+      if (gatewayResult.isPending) {
+        return _handlePendingNativePurchase(
+          intent: intent,
+          attempt: pendingAttempt,
+          verificationData: gatewayResult.nativeVerificationData,
+        );
       }
 
       if (!gatewayResult.isCompleted) {
@@ -238,6 +275,8 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       final result = PurchaseResult.failed(_messageFor(error));
       state = AsyncData(result);
       return result;
+    } finally {
+      _isPurchaseInProgress = false;
     }
   }
 
@@ -386,6 +425,152 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         method == PaymentMethod.googlePlay;
   }
 
+  Future<PendingNativePurchase?> _savePendingNativeAttempt({
+    required Movie movie,
+    required PaymentIntent intent,
+  }) async {
+    if (!_isNativePaymentMethod(intent.method)) return null;
+
+    final productId = intent.storeProductId?.trim() ?? '';
+    final session = await ref.read(authControllerProvider.future);
+    if (session == null || productId.isEmpty || intent.txRef.isEmpty) {
+      return null;
+    }
+
+    final attempt = PendingNativePurchase(
+      userId: session.user.id,
+      txRef: intent.txRef,
+      movieId: movie.id,
+      productId: productId,
+      platform: intent.method == PaymentMethod.googlePlay ? 'android' : 'ios',
+      createdAt: DateTime.now(),
+    );
+    await ref.read(pendingNativePurchaseStoreProvider).upsert(attempt);
+    return attempt;
+  }
+
+  Future<PurchaseResult> _recoverExistingNativeAttempt({
+    required Movie movie,
+    required PendingNativePurchase attempt,
+  }) async {
+    late final PaymentConfirmation confirmation;
+    try {
+      confirmation = await ref
+          .read(paymentRepositoryProvider)
+          .recoverNativePurchase(attempt: attempt);
+    } catch (error) {
+      debugPrint(
+        '[NativePayment] pending recovery deferred txRef=${attempt.txRef} '
+        'error=$error',
+      );
+      final result = PurchaseResult.pending(txRef: attempt.txRef);
+      state = AsyncData(result);
+      return result;
+    }
+
+    if (confirmation.isSuccessful) {
+      await _removePendingNativeAttempt(attempt);
+      await _refreshAfterPurchase(movie);
+      final result = PurchaseResult.success(
+        txRef: confirmation.txRef ?? attempt.txRef,
+        transactionId: confirmation.transactionId ?? attempt.txRef,
+        paymentType: confirmation.paymentType,
+      );
+      state = AsyncData(result);
+      return result;
+    }
+
+    if (confirmation.isPending) {
+      final result = PurchaseResult.pending(txRef: attempt.txRef);
+      state = AsyncData(result);
+      return result;
+    }
+
+    await _removePendingNativeAttempt(attempt);
+    final result = PurchaseResult.failed(
+      'The pending payment was not completed. Please try again.',
+    );
+    state = AsyncData(result);
+    return result;
+  }
+
+  Future<PurchaseResult> _handlePendingNativePurchase({
+    required PaymentIntent intent,
+    required PendingNativePurchase? attempt,
+    required NativePurchaseVerificationData? verificationData,
+  }) async {
+    if (attempt != null &&
+        verificationData != null &&
+        verificationData.serverVerificationData.isNotEmpty) {
+      PaymentConfirmation? confirmation;
+      try {
+        confirmation = await ref
+            .read(paymentRepositoryProvider)
+            .recoverNativePurchase(
+              attempt: attempt,
+              verificationData: verificationData,
+            );
+      } catch (error) {
+        debugPrint(
+          '[NativePayment] pending verification deferred '
+          'txRef=${attempt.txRef} error=$error',
+        );
+      }
+
+      if (confirmation?.isSuccessful == true) {
+        try {
+          await ref
+              .read(nativeStorePaymentGatewayProvider)
+              .completePurchase(verificationData.completionKey);
+        } catch (_) {
+          // The backend has already consumed or acknowledged the purchase.
+        }
+        await _removePendingNativeAttempt(attempt);
+        await _refreshHomeData();
+        final result = PurchaseResult.success(
+          txRef: confirmation!.txRef ?? intent.txRef,
+          transactionId:
+              confirmation.transactionId ?? verificationData.completionKey,
+          paymentType: confirmation.paymentType,
+        );
+        state = AsyncData(result);
+        return result;
+      }
+
+      if (confirmation != null && !confirmation.isPending) {
+        await _removePendingNativeAttempt(attempt);
+        final result = PurchaseResult.failed(
+          'Payment was not completed. Please try again.',
+        );
+        state = AsyncData(result);
+        return result;
+      }
+    }
+
+    final result = PurchaseResult.pending(txRef: intent.txRef);
+    state = AsyncData(result);
+    return result;
+  }
+
+  Future<void> _removePendingNativeAttempt(PendingNativePurchase attempt) {
+    return ref
+        .read(pendingNativePurchaseStoreProvider)
+        .remove(userId: attempt.userId, txRef: attempt.txRef);
+  }
+
+  Future<void> _removePendingNativeAttemptForIntent(
+    PaymentIntent intent,
+  ) async {
+    if (!_isNativePaymentMethod(intent.method)) return;
+
+    final userId = intent.storeAccountId?.trim();
+    if (userId == null || userId.isEmpty) return;
+
+    await ref
+        .read(pendingNativePurchaseStoreProvider)
+        .remove(userId: userId, txRef: intent.txRef);
+  }
+
   Future<void> _closeNativePurchaseAttempt({
     required PaymentIntent intent,
     required String providerStatus,
@@ -409,6 +594,8 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         '[NativePayment] close failed txRef=${intent.txRef} error=$error',
       );
       // Cleanup is best-effort and must not replace the store result shown.
+    } finally {
+      await _removePendingNativeAttemptForIntent(intent);
     }
   }
 
@@ -483,6 +670,12 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
           verificationData: verificationData,
         );
 
+    if (confirmation.isPending) {
+      final result = PurchaseResult.pending(txRef: intent.txRef);
+      state = AsyncData(result);
+      return result;
+    }
+
     if (!confirmation.isSuccessful) {
       final result = PurchaseResult.failed(
         'Payment could not be verified. Please try again.',
@@ -500,6 +693,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       // transaction later if completion fails, so do not show a false failure.
     }
 
+    await _removePendingNativeAttemptForIntent(intent);
     await _refreshAfterPurchase(movie);
 
     final result = PurchaseResult.success(

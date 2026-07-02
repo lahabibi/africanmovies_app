@@ -1,4 +1,10 @@
-enum PurchaseResultStatus { success, alreadyPurchased, cancelled, failed }
+enum PurchaseResultStatus {
+  success,
+  pending,
+  alreadyPurchased,
+  cancelled,
+  failed,
+}
 
 class PurchaseResult {
   final PurchaseResultStatus status;
@@ -46,6 +52,15 @@ class PurchaseResult {
     return const PurchaseResult(
       status: PurchaseResultStatus.alreadyPurchased,
       message: 'You already have access to this movie.',
+    );
+  }
+
+  factory PurchaseResult.pending({String? txRef}) {
+    return PurchaseResult(
+      status: PurchaseResultStatus.pending,
+      message:
+          'Your payment is awaiting confirmation. We will update your library automatically.',
+      txRef: txRef,
     );
   }
 

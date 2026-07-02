@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'payment_intent.dart';
 
-enum GatewayPaymentStatus { completed, cancelled, failed }
+enum GatewayPaymentStatus { completed, pending, cancelled, failed }
 
 class GatewayPaymentResult {
   final GatewayPaymentStatus status;
@@ -20,6 +20,7 @@ class GatewayPaymentResult {
   });
 
   bool get isCompleted => status == GatewayPaymentStatus.completed;
+  bool get isPending => status == GatewayPaymentStatus.pending;
 }
 
 class NativePurchaseVerificationData {

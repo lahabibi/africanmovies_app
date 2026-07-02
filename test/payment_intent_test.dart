@@ -11,6 +11,9 @@ void main() {
       'amount': 0.99,
       'currency': 'USD',
       'storeProductId': 'com.africanmovies.movie.tima_bata_2026.rental',
+      'storeAccountId': 'user-1',
+      'awaitingStoreConfirmation': true,
+      'reused': true,
     });
 
     expect(intent.method, PaymentMethod.storeKit);
@@ -18,6 +21,9 @@ void main() {
       intent.storeProductId,
       'com.africanmovies.movie.tima_bata_2026.rental',
     );
+    expect(intent.storeAccountId, 'user-1');
+    expect(intent.awaitingStoreConfirmation, true);
+    expect(intent.reused, true);
   });
 
   test('falls back to productId alias for native payment intent', () {

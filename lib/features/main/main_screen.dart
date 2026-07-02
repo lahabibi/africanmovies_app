@@ -14,6 +14,7 @@ import '../../core/constants/app_colors.dart';
 import '../../shared/widgets/bottom_nav_bar.dart';
 import '../auth/application/auth_controller.dart';
 import '../home/home_screen.dart';
+import '../payment/application/native_purchase_recovery_controller.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -45,8 +46,27 @@ class _MainScreenState extends ConsumerState<MainScreen>
       if (!hadSession && hasSession) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _validateSessionIfSignedIn();
+          ref
+              .read(nativePurchaseRecoveryControllerProvider.notifier)
+              .recoverOutstandingPurchases();
         });
       }
+    });
+
+    ref.listenManual(nativePurchaseRecoveryControllerProvider, (
+      previous,
+      next,
+    ) {
+      final notice = next.asData?.value;
+      if (notice == null) return;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showMessage(notice.message);
+        ref
+            .read(nativePurchaseRecoveryControllerProvider.notifier)
+            .clearNotice();
+      });
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -64,7 +84,16 @@ class _MainScreenState extends ConsumerState<MainScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _validateSessionIfSignedIn();
+      ref
+          .read(nativePurchaseRecoveryControllerProvider.notifier)
+          .recoverOutstandingPurchases();
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool get _hasSession {
