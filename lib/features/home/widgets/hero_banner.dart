@@ -18,7 +18,7 @@ class HeroBanner extends StatelessWidget {
   final String releaseType;
   final String duration;
   final String ageRating;
-  final String? videoUrl;
+  final bool isTrailerLoading;
   final VoidCallback? onWatchNowTap;
   final VoidCallback? onTrailerTap;
 
@@ -33,7 +33,7 @@ class HeroBanner extends StatelessWidget {
     required this.releaseType,
     required this.duration,
     required this.ageRating,
-    this.videoUrl,
+    this.isTrailerLoading = false,
     this.onWatchNowTap,
     this.onTrailerTap,
   });
@@ -198,11 +198,18 @@ class HeroBanner extends StatelessWidget {
                       borderRadius: AppRadius.xs,
                       variant: AppButtonVariant.outline,
                       borderColor: AppColors.textPrimary,
-                      onPressed: onTrailerTap ?? () {},
-                      // icon: Icon(
-                      //   Icons.play_arrow_outlined,
-                      //   size: 18.sp,
-                      // ),
+                      onPressed: isTrailerLoading
+                          ? null
+                          : onTrailerTap ?? () {},
+                      icon: isTrailerLoading
+                          ? SizedBox.square(
+                              dimension: 13.w,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
                     ),
                   ],
                 ),

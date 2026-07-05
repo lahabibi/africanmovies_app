@@ -67,4 +67,15 @@ void main() {
     expect(movie.storeProducts.androidProductId, isNull);
     expect(movie.storeProducts.hasAnyProductId, isFalse);
   });
+
+  test('does not retain protected full-movie playback fields', () {
+    final movie = Movie.fromJson({
+      '_id': 'movie-1',
+      'videoId': 'protected-cloudflare-id',
+      'movieVideoURL': 'https://example.com/protected-video.m3u8',
+    });
+
+    expect(movie.toJson(), isNot(contains('videoId')));
+    expect(movie.toJson(), isNot(contains('movieVideoURL')));
+  });
 }

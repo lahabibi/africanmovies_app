@@ -29,8 +29,19 @@ class NativePurchaseRecoveryNotice {
 
 class NativePurchaseRecoveryController
     extends AsyncNotifier<NativePurchaseRecoveryNotice?> {
+  static const _recoveryRetryDelays = <Duration>[
+    Duration(seconds: 5),
+    Duration(seconds: 10),
+    Duration(seconds: 20),
+    Duration(seconds: 30),
+    Duration(minutes: 1),
+  ];
+
   StreamSubscription<List<PurchaseDetails>>? _subscription;
+  Timer? _recoveryRetryTimer;
   String? _userId;
+  int _recoveryRetryAttempt = 0;
+  bool _isRecoveryRunning = false;
   final Set<String> _processingTokens = {};
   final Set<String> _notifiedTransactions = {};
 
@@ -38,6 +49,7 @@ class NativePurchaseRecoveryController
   Future<NativePurchaseRecoveryNotice?> build() async {
     await _subscription?.cancel();
     _subscription = null;
+    _cancelRecoveryRetry();
 
     final session = await ref.watch(authControllerProvider.future);
     _userId = session?.user.id;
@@ -51,7 +63,10 @@ class NativePurchaseRecoveryController
         debugPrint('[NativeRecovery] purchase stream error=$error');
       },
     );
-    ref.onDispose(() => unawaited(_subscription?.cancel()));
+    ref.onDispose(() {
+      _recoveryRetryTimer?.cancel();
+      unawaited(_subscription?.cancel());
+    });
 
     unawaited(Future<void>.delayed(Duration.zero, recoverOutstandingPurchases));
     return null;
@@ -59,35 +74,53 @@ class NativePurchaseRecoveryController
 
   Future<void> recoverOutstandingPurchases() async {
     final userId = _userId;
-    if (userId == null || defaultTargetPlatform != TargetPlatform.android) {
+    if (userId == null ||
+        defaultTargetPlatform != TargetPlatform.android ||
+        _isRecoveryRunning) {
       return;
     }
 
-    final store = ref.read(pendingNativePurchaseStoreProvider);
-    final attempts = await store.readAll(userId);
-    for (final attempt in attempts) {
-      try {
-        final result = await ref
-            .read(paymentRepositoryProvider)
-            .recoverNativePurchase(attempt: attempt);
-        await _handleRecoveryResult(
-          result: result,
-          attempt: attempt,
-          purchase: null,
-        );
-      } catch (error) {
-        debugPrint(
-          '[NativeRecovery] txRef=${attempt.txRef} awaiting store data: $error',
-        );
-      }
-    }
+    _isRecoveryRunning = true;
+    var shouldRetry = false;
 
     try {
-      await InAppPurchase.instance.restorePurchases(
-        applicationUserName: userId,
-      );
-    } catch (error) {
-      debugPrint('[NativeRecovery] restorePurchases failed: $error');
+      final store = ref.read(pendingNativePurchaseStoreProvider);
+      final attempts = await store.readAll(userId);
+      for (final attempt in attempts) {
+        try {
+          final result = await ref
+              .read(paymentRepositoryProvider)
+              .recoverNativePurchase(attempt: attempt);
+          shouldRetry = shouldRetry || result.isPending;
+          await _handleRecoveryResult(
+            result: result,
+            attempt: attempt,
+            purchase: null,
+          );
+        } catch (error) {
+          shouldRetry = true;
+          _showAwaitingConfirmationNotice(attempt);
+          debugPrint(
+            '[NativeRecovery] txRef=${attempt.txRef} awaiting store data: $error',
+          );
+        }
+      }
+
+      try {
+        await InAppPurchase.instance.restorePurchases(
+          applicationUserName: userId,
+        );
+      } catch (error) {
+        shouldRetry = shouldRetry || attempts.isNotEmpty;
+        debugPrint('[NativeRecovery] restorePurchases failed: $error');
+      }
+    } finally {
+      _isRecoveryRunning = false;
+      if (shouldRetry) {
+        _scheduleRecoveryRetry();
+      } else {
+        _cancelRecoveryRetry();
+      }
     }
   }
 
@@ -100,11 +133,12 @@ class NativePurchaseRecoveryController
       if (purchase.productID.isEmpty || token.isEmpty) continue;
       if (!_processingTokens.add(token)) continue;
 
+      PendingNativePurchase? attempt;
       try {
         final attempts = await ref
             .read(pendingNativePurchaseStoreProvider)
             .readAll(userId);
-        final attempt = attempts
+        attempt = attempts
             .where((item) => item.productId == purchase.productID)
             .firstOrNull;
         final result = await ref
@@ -118,7 +152,10 @@ class NativePurchaseRecoveryController
           attempt: attempt,
           purchase: purchase,
         );
+        if (result.isPending) _scheduleRecoveryRetry();
       } catch (error) {
+        if (attempt != null) _showAwaitingConfirmationNotice(attempt);
+        _scheduleRecoveryRetry();
         debugPrint(
           '[NativeRecovery] productId=${purchase.productID} recovery failed: $error',
         );
@@ -160,6 +197,8 @@ class NativePurchaseRecoveryController
     final txRef = result.txRef ?? attempt?.txRef;
     if (txRef != null && txRef.isNotEmpty) {
       await store.remove(userId: userId, txRef: txRef);
+      final remainingAttempts = await store.readAll(userId);
+      if (remainingAttempts.isEmpty) _cancelRecoveryRetry();
     }
 
     if (!result.isSuccessful) {
@@ -234,6 +273,42 @@ class NativePurchaseRecoveryController
       localVerificationData: purchase.verificationData.localVerificationData,
       serverVerificationData: purchase.verificationData.serverVerificationData,
     );
+  }
+
+  void _showAwaitingConfirmationNotice(PendingNativePurchase attempt) {
+    final checkoutIsActive = ref
+        .read(purchaseControllerProvider.notifier)
+        .isPurchaseInProgress;
+    final noticeKey = 'waiting:${attempt.txRef}';
+    if (checkoutIsActive || !_notifiedTransactions.add(noticeKey)) return;
+
+    state = AsyncData(
+      NativePurchaseRecoveryNotice(
+        message:
+            "Your purchase is awaiting confirmation. We'll complete it automatically when the connection is restored.",
+        transactionKey: noticeKey,
+      ),
+    );
+  }
+
+  void _scheduleRecoveryRetry() {
+    if (_recoveryRetryTimer?.isActive == true) return;
+
+    final delayIndex = _recoveryRetryAttempt < _recoveryRetryDelays.length
+        ? _recoveryRetryAttempt
+        : _recoveryRetryDelays.length - 1;
+    final delay = _recoveryRetryDelays[delayIndex];
+    _recoveryRetryAttempt++;
+    _recoveryRetryTimer = Timer(delay, () {
+      _recoveryRetryTimer = null;
+      unawaited(recoverOutstandingPurchases());
+    });
+  }
+
+  void _cancelRecoveryRetry() {
+    _recoveryRetryTimer?.cancel();
+    _recoveryRetryTimer = null;
+    _recoveryRetryAttempt = 0;
   }
 
   void clearNotice() {

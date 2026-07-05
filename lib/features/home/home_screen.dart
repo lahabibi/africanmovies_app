@@ -43,6 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _heroItemCount = 1;
   Timer? _heroTimer;
   String? _openingContinueWatchingOrderId;
+  String? _openingTrailerMovieId;
 
   @override
   void initState() {
@@ -90,21 +91,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _openTrailer(Movie movie) {
-    final trailerUrl = movie.trailerUrl.trim();
+  Future<void> _openTrailer(Movie movie) async {
+    if (_openingTrailerMovieId != null) return;
+    setState(() => _openingTrailerMovieId = movie.id);
 
-    if (trailerUrl.isEmpty) {
-      _showMessage('Trailer unavailable');
-      return;
+    try {
+      final playback = await ref
+          .read(playerRepositoryProvider)
+          .requestTrailerPlayback(movie.id);
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TrailerPlayerScreen(
+            title: playback.title.isNotEmpty ? playback.title : movie.title,
+            videoUrl: playback.playbackUrl,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_messageFor(error));
+    } finally {
+      if (mounted) setState(() => _openingTrailerMovieId = null);
     }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            TrailerPlayerScreen(title: movie.title, videoUrl: trailerUrl),
-      ),
-    );
   }
 
   Future<void> _openContinueWatching(HomeOrder order) async {
@@ -248,8 +260,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       releaseType: movie.releaseType,
                       duration: movie.durationLabel,
                       ageRating: movie.ageRatingLabel,
+                      isTrailerLoading: _openingTrailerMovieId == movie.id,
                       onWatchNowTap: () => _openMovieDetails(movie),
-                      onTrailerTap: () => _openTrailer(movie),
+                      onTrailerTap: _openingTrailerMovieId == null
+                          ? () => _openTrailer(movie)
+                          : null,
                     );
                   },
                 ),

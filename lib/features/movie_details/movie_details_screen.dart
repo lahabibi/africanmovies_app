@@ -49,6 +49,7 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   bool _isTogglingFavorite = false;
   bool _isSavingPaymentMethod = false;
   bool _isOpeningPlayer = false;
+  bool _isOpeningTrailer = false;
 
   Movie get movie => widget.movie;
 
@@ -1448,23 +1449,32 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     );
   }
 
-  void _openTrailer(BuildContext context) {
-    final trailerUrl = movie.trailerUrl.trim();
+  Future<void> _openTrailer() async {
+    if (_isOpeningTrailer) return;
+    setState(() => _isOpeningTrailer = true);
 
-    if (trailerUrl.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Trailer unavailable')));
-      return;
+    try {
+      final playback = await ref
+          .read(playerRepositoryProvider)
+          .requestTrailerPlayback(movie.id);
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TrailerPlayerScreen(
+            title: playback.title.isNotEmpty ? playback.title : movie.title,
+            videoUrl: playback.playbackUrl,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_messageFor(error));
+    } finally {
+      if (mounted) setState(() => _isOpeningTrailer = false);
     }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            TrailerPlayerScreen(title: movie.title, videoUrl: trailerUrl),
-      ),
-    );
   }
 
   @override
@@ -1528,7 +1538,8 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                           MovieSmallAction(
                             icon: Icons.smart_display_outlined,
                             label: 'Trailer',
-                            onTap: () => _openTrailer(context),
+                            isLoading: _isOpeningTrailer,
+                            onTap: _openTrailer,
                           ),
                           SizedBox(width: 6.w),
                           MovieSmallAction(

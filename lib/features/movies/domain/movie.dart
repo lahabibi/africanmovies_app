@@ -14,7 +14,6 @@ class Movie {
   final String countryName;
   final String isoCode;
   final String language;
-  final String? videoId;
   final double duration;
   final String status;
   final String? releaseYear;
@@ -23,7 +22,6 @@ class Movie {
   final String posterUrl;
   final String bannerUrl;
   final String trailerUrl;
-  final String? videoUrl;
   final String uploadedBy;
   final DateTime? uploadDate;
   final bool isFavorite;
@@ -45,7 +43,6 @@ class Movie {
     required this.countryName,
     required this.isoCode,
     required this.language,
-    this.videoId,
     required this.duration,
     required this.status,
     this.releaseYear,
@@ -54,7 +51,6 @@ class Movie {
     required this.posterUrl,
     required this.bannerUrl,
     required this.trailerUrl,
-    this.videoUrl,
     required this.uploadedBy,
     this.uploadDate,
     this.isFavorite = false,
@@ -78,7 +74,6 @@ class Movie {
       countryName: json['countryName']?.toString() ?? '',
       isoCode: json['isocode']?.toString() ?? '',
       language: json['language']?.toString() ?? '',
-      videoId: json['videoId']?.toString(),
       duration: _readDouble(json['duration']),
       status: json['status']?.toString() ?? '',
       releaseYear: json['releaseYear']?.toString(),
@@ -92,7 +87,6 @@ class Movie {
       posterUrl: json['moviePictureURL']?.toString() ?? '',
       bannerUrl: json['movieBannerPictureURL']?.toString() ?? '',
       trailerUrl: json['movieTrailerURL']?.toString() ?? '',
-      videoUrl: json['movieVideoURL']?.toString(),
       uploadedBy: json['uploadedBy']?.toString() ?? '',
       uploadDate: DateTime.tryParse(json['uploadDate']?.toString() ?? ''),
       isFavorite: json['isFavorite'] == true,
@@ -163,7 +157,6 @@ class Movie {
       'countryName': countryName,
       'isocode': isoCode,
       'language': language,
-      'videoId': videoId,
       'duration': duration,
       'status': status,
       'releaseYear': releaseYear,
@@ -172,7 +165,6 @@ class Movie {
       'moviePictureURL': posterUrl,
       'movieBannerPictureURL': bannerUrl,
       'movieTrailerURL': trailerUrl,
-      'movieVideoURL': videoUrl,
       'uploadedBy': uploadedBy,
       'uploadDate': uploadDate?.toIso8601String(),
       'isFavorite': isFavorite,

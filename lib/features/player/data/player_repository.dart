@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/movie_playback.dart';
+import '../domain/trailer_playback.dart';
 
 class PlayerRepository {
   PlayerRepository({required ApiClient apiClient}) : _apiClient = apiClient;
@@ -32,6 +33,33 @@ class PlayerRepository {
               ? playback.message
               : 'Playback unavailable',
         );
+      }
+
+      return playback;
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<TrailerPlayback> requestTrailerPlayback(String movieId) async {
+    final normalizedMovieId = movieId.trim();
+    if (normalizedMovieId.isEmpty) {
+      throw const ApiException('Missing movie ID');
+    }
+
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/movies/trailer/access/$normalizedMovieId',
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing trailer playback data');
+      }
+
+      final playback = TrailerPlayback.fromJson(data);
+      if (!playback.canPlay) {
+        throw const ApiException('Trailer unavailable');
       }
 
       return playback;
