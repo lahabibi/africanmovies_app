@@ -15,6 +15,7 @@ import '../../shared/widgets/bottom_nav_bar.dart';
 import '../auth/application/auth_controller.dart';
 import '../home/home_screen.dart';
 import '../payment/application/native_purchase_recovery_controller.dart';
+import '../payment/application/payment_providers.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -62,11 +63,29 @@ class _MainScreenState extends ConsumerState<MainScreen>
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        final currentNotice = ref
+            .read(nativePurchaseRecoveryControllerProvider)
+            .asData
+            ?.value;
+        if (currentNotice?.transactionKey != notice.transactionKey) return;
+
         _showMessage(notice.message);
         ref
             .read(nativePurchaseRecoveryControllerProvider.notifier)
             .clearNotice();
       });
+    });
+
+    ref.listenManual(purchaseControllerProvider, (previous, next) {
+      final result = next.asData?.value;
+      if (result == null || !result.grantsAccess) return;
+
+      ref
+          .read(nativePurchaseRecoveryControllerProvider.notifier)
+          .markPurchaseHandled(
+            txRef: result.txRef,
+            transactionId: result.transactionId,
+          );
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -29,6 +29,8 @@ class NativePurchaseRecoveryNotice {
 
 class NativePurchaseRecoveryController
     extends AsyncNotifier<NativePurchaseRecoveryNotice?> {
+  static const _freshCheckoutNoticeGracePeriod = Duration(minutes: 2);
+
   static const _recoveryRetryDelays = <Duration>[
     Duration(seconds: 5),
     Duration(seconds: 10),
@@ -44,6 +46,7 @@ class NativePurchaseRecoveryController
   bool _isRecoveryRunning = false;
   final Set<String> _processingTokens = {};
   final Set<String> _notifiedTransactions = {};
+  final Set<String> _handledTransactionKeys = {};
 
   @override
   Future<NativePurchaseRecoveryNotice?> build() async {
@@ -166,6 +169,17 @@ class NativePurchaseRecoveryController
 
     final store = ref.read(pendingNativePurchaseStoreProvider);
 
+    if (_isHandledTransaction(
+      txRef: result.txRef ?? attempt?.txRef,
+      transactionId: result.transactionId ?? purchase?.purchaseID,
+    )) {
+      final txRef = result.txRef ?? attempt?.txRef;
+      if (txRef != null && txRef.isNotEmpty) {
+        await store.remove(userId: userId, txRef: txRef);
+      }
+      return;
+    }
+
     if (result.isPending) {
       if (attempt == null &&
           result.txRef?.isNotEmpty == true &&
@@ -263,6 +277,9 @@ class NativePurchaseRecoveryController
   }
 
   void _showAwaitingConfirmationNotice(PendingNativePurchase attempt) {
+    if (_isHandledTransaction(txRef: attempt.txRef)) return;
+    if (_isFreshCheckoutAttempt(attempt)) return;
+
     final checkoutIsActive = ref
         .read(purchaseControllerProvider.notifier)
         .isPurchaseInProgress;
@@ -300,5 +317,45 @@ class NativePurchaseRecoveryController
 
   void clearNotice() {
     state = const AsyncData(null);
+  }
+
+  void markPurchaseHandled({String? txRef, String? transactionId}) {
+    final keys = [txRef, transactionId]
+        .whereType<String>()
+        .map((key) => key.trim())
+        .where((key) => key.isNotEmpty);
+
+    var handledAny = false;
+    for (final key in keys) {
+      handledAny = true;
+      _handledTransactionKeys.add(key);
+      _notifiedTransactions.add(key);
+      _notifiedTransactions.add('waiting:$key');
+    }
+
+    if (!handledAny) return;
+
+    _cancelRecoveryRetry();
+    state = const AsyncData(null);
+  }
+
+  bool _isHandledTransaction({String? txRef, String? transactionId}) {
+    final normalizedTxRef = txRef?.trim();
+    if (normalizedTxRef != null &&
+        normalizedTxRef.isNotEmpty &&
+        _handledTransactionKeys.contains(normalizedTxRef)) {
+      return true;
+    }
+
+    final normalizedTransactionId = transactionId?.trim();
+    return normalizedTransactionId != null &&
+        normalizedTransactionId.isNotEmpty &&
+        _handledTransactionKeys.contains(normalizedTransactionId);
+  }
+
+  bool _isFreshCheckoutAttempt(PendingNativePurchase attempt) {
+    final age = DateTime.now().difference(attempt.createdAt);
+
+    return age >= Duration.zero && age < _freshCheckoutNoticeGracePeriod;
   }
 }
