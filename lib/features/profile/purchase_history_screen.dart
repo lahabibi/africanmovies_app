@@ -164,6 +164,12 @@ class _HistorySummary extends StatelessWidget {
             label: '${summary.failed} Failed',
             color: AppColors.danger,
           ),
+        if (summary.refunded > 0)
+          _SummaryChip(
+            icon: Icons.currency_exchange_rounded,
+            label: '${summary.refunded} Refunded',
+            color: const Color(0xFFF97316),
+          ),
       ],
     );
   }
@@ -572,6 +578,16 @@ class _PurchaseHistoryDetailsSheet extends StatelessWidget {
                   ? 'N/A'
                   : _formatDate(item.order!.expiryDate),
             ),
+            if (item.payment?.isRefunded == true) ...[
+              _DetailRow(
+                label: 'Refunded On',
+                value: _formatDate(item.payment!.refundedAt),
+              ),
+              _DetailRow(
+                label: 'Refund Reason',
+                value: item.payment!.refundReasonLabel,
+              ),
+            ],
           ],
         ),
       ),

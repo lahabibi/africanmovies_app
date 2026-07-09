@@ -98,7 +98,7 @@ class PaymentHistoryItem {
   String get displayDate => _formatDate(createdAt);
 
   String get paymentStatusLabel {
-    final status = payment?.status.trim();
+    final status = payment?.financialStatusLabel.trim();
     if (status != null && status.isNotEmpty) return status;
     if (type == 'order') return 'Order';
 
@@ -112,6 +112,7 @@ class PaymentHistoryItem {
       'pending' => 'Pending',
       'failed' => 'Failed',
       'completed' => 'Completed',
+      'refunded' => 'Refunded',
       _ => 'Unknown',
     };
   }
@@ -123,6 +124,7 @@ class PaymentHistoryItem {
       'pending' => const Color(0xFFFBBF24),
       'failed' => AppColors.danger,
       'completed' => AppColors.heroButton,
+      'refunded' => const Color(0xFFF97316),
       _ => AppColors.textSecondary,
     };
   }
@@ -184,10 +186,12 @@ class PaymentHistoryOrder {
   final bool paid;
   final bool active;
   final bool expired;
+  final bool revoked;
   final double currentTime;
   final bool startWatch;
   final DateTime? orderDate;
   final DateTime? expiryDate;
+  final DateTime? revokedAt;
 
   const PaymentHistoryOrder({
     required this.id,
@@ -196,10 +200,12 @@ class PaymentHistoryOrder {
     required this.paid,
     required this.active,
     required this.expired,
+    required this.revoked,
     required this.currentTime,
     required this.startWatch,
     this.orderDate,
     this.expiryDate,
+    this.revokedAt,
   });
 
   factory PaymentHistoryOrder.fromJson(Map<String, dynamic> json) {
@@ -210,10 +216,12 @@ class PaymentHistoryOrder {
       paid: json['paid'] == true,
       active: json['active'] == true,
       expired: json['expired'] == true,
+      revoked: json['revoked'] == true,
       currentTime: _readDouble(json['currentTime']),
       startWatch: json['startWatch'] == true,
       orderDate: DateTime.tryParse(json['orderDate']?.toString() ?? ''),
       expiryDate: DateTime.tryParse(json['expiryDate']?.toString() ?? ''),
+      revokedAt: DateTime.tryParse(json['revokedAt']?.toString() ?? ''),
     );
   }
 }
@@ -224,8 +232,13 @@ class PaymentHistoryPayment {
   final double? amount;
   final String currency;
   final String status;
+  final String financialStatus;
+  final String? entitlementStatus;
   final String? transactionId;
   final DateTime? createdAt;
+  final DateTime? refundedAt;
+  final String? refundReason;
+  final String? refundSource;
 
   const PaymentHistoryPayment({
     required this.id,
@@ -233,8 +246,13 @@ class PaymentHistoryPayment {
     this.amount,
     required this.currency,
     required this.status,
+    required this.financialStatus,
+    this.entitlementStatus,
     this.transactionId,
     this.createdAt,
+    this.refundedAt,
+    this.refundReason,
+    this.refundSource,
   });
 
   factory PaymentHistoryPayment.fromJson(Map<String, dynamic> json) {
@@ -244,9 +262,45 @@ class PaymentHistoryPayment {
       amount: json['amount'] == null ? null : _readDouble(json['amount']),
       currency: json['currency']?.toString() ?? 'USD',
       status: json['status']?.toString() ?? '',
+      financialStatus:
+          json['financialStatus']?.toString() ??
+          json['status']?.toString().toLowerCase() ??
+          'unknown',
+      entitlementStatus: json['entitlementStatus']?.toString(),
       transactionId: json['transactionId']?.toString(),
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
+      refundedAt: DateTime.tryParse(json['refundedAt']?.toString() ?? ''),
+      refundReason: json['refundReason']?.toString(),
+      refundSource: json['refundSource']?.toString(),
     );
+  }
+
+  bool get isRefunded => financialStatus.toLowerCase() == 'refunded';
+
+  String get financialStatusLabel {
+    return switch (financialStatus.toLowerCase()) {
+      'completed' => 'Completed',
+      'failed' => 'Failed',
+      'pending' => 'Pending',
+      'refunded' => 'Refunded',
+      _ => status,
+    };
+  }
+
+  String get refundReasonLabel {
+    final reason = refundReason?.toUpperCase() ?? '';
+
+    if (reason.contains('CHARGEBACK')) return 'Chargeback';
+    if (reason.contains('FRAUD')) return 'Fraudulent purchase';
+    if (reason.contains('ACCIDENTAL_PURCHASE')) return 'Accidental purchase';
+    if (reason.contains('UNACKNOWLEDGED_PURCHASE')) {
+      return 'Purchase not acknowledged';
+    }
+    if (reason.contains('NOT_RECEIVED')) return 'Content not received';
+    if (reason.contains('DEFECTIVE')) return 'Content issue';
+    if (reason.contains('REMORSE')) return 'Refund requested';
+
+    return 'Purchase refunded';
   }
 }
 
@@ -255,6 +309,7 @@ class PaymentHistorySummary {
   final int completed;
   final int pending;
   final int failed;
+  final int refunded;
   final int active;
   final int expired;
   final int orderOnly;
@@ -264,6 +319,7 @@ class PaymentHistorySummary {
     required this.completed,
     required this.pending,
     required this.failed,
+    required this.refunded,
     required this.active,
     required this.expired,
     required this.orderOnly,
@@ -275,6 +331,7 @@ class PaymentHistorySummary {
       completed: _readInt(json['completed']),
       pending: _readInt(json['pending']),
       failed: _readInt(json['failed']),
+      refunded: _readInt(json['refunded']),
       active: _readInt(json['active']),
       expired: _readInt(json['expired']),
       orderOnly: _readInt(json['orderOnly']),
