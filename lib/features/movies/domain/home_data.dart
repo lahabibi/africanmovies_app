@@ -171,8 +171,10 @@ class HomeOrder {
   final String movieId;
   final double currentTime;
   final DateTime? expiryDate;
+  final DateTime? completedAt;
   final bool startWatch;
   final bool paid;
+  final bool playbackCompleted;
   final Movie? movie;
 
   const HomeOrder({
@@ -180,8 +182,10 @@ class HomeOrder {
     required this.movieId,
     required this.currentTime,
     this.expiryDate,
+    this.completedAt,
     required this.startWatch,
     required this.paid,
+    this.playbackCompleted = false,
     this.movie,
   });
 
@@ -207,8 +211,11 @@ class HomeOrder {
       movieId: movieId,
       currentTime: double.tryParse(json['currentTime']?.toString() ?? '') ?? 0,
       expiryDate: DateTime.tryParse(json['expiryDate']?.toString() ?? ''),
+      completedAt: DateTime.tryParse(json['completedAt']?.toString() ?? ''),
       startWatch: json['startWatch'] == true,
       paid: json['paid'] == true,
+      playbackCompleted:
+          json['playbackCompleted'] == true || json['completed'] == true,
       movie: populatedMovie ?? moviesById[movieId],
     );
   }
@@ -219,13 +226,16 @@ class HomeOrder {
       'movieId': movie?.toJson() ?? movieId,
       'currentTime': currentTime,
       'expiryDate': expiryDate?.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
       'startWatch': startWatch,
       'paid': paid,
+      'playbackCompleted': playbackCompleted,
     };
   }
 
   bool get isInProgress {
     final movie = this.movie;
+    if (playbackCompleted || completedAt != null) return false;
     if (!hasActiveAccess || movie == null || currentTime <= 0) return false;
 
     final durationSeconds = movie.duration * 60;
@@ -257,6 +267,9 @@ class HomeOrder {
 
   bool isBetterLibraryOrderThan(HomeOrder other) {
     if (hasActiveAccess != other.hasActiveAccess) return hasActiveAccess;
+    if (playbackCompleted != other.playbackCompleted) {
+      return !playbackCompleted;
+    }
 
     final expiryDate = this.expiryDate;
     final otherExpiryDate = other.expiryDate;

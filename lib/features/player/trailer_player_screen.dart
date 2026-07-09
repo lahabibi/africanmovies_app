@@ -22,6 +22,7 @@ class TrailerPlayerScreen extends StatefulWidget {
   final Duration initialPosition;
   final Duration? expectedDuration;
   final Future<void> Function(Duration position)? onProgressChanged;
+  final Future<void> Function(Duration position)? onPlaybackCompleted;
 
   const TrailerPlayerScreen({
     super.key,
@@ -36,6 +37,7 @@ class TrailerPlayerScreen extends StatefulWidget {
     this.initialPosition = Duration.zero,
     this.expectedDuration,
     this.onProgressChanged,
+    this.onPlaybackCompleted,
   });
 
   @override
@@ -83,6 +85,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
   int _warmResumeAttempts = 0;
   DateTime? _warmResumeWaitStartedAt;
   bool _progressSaveInFlight = false;
+  bool _playbackCompleted = false;
   bool _isClosing = false;
   bool _allowRoutePop = false;
   Duration? _lastSavedProgress;
@@ -111,7 +114,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
 
     _completedSubscription = _player.stream.completed.listen((completed) {
       if (!mounted || !completed) return;
-      unawaited(_flushPlaybackProgress(reset: true));
+      unawaited(_handlePlaybackCompleted());
       setState(() => _controlsVisible = true);
     });
 
@@ -591,6 +594,8 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
   }
 
   void _requestProgressSave(Duration position) {
+    if (_playbackCompleted) return;
+
     final progress = _normalizedProgressForSave(position);
     if (progress == null) return;
     if (!_shouldSaveProgress(progress)) return;
@@ -598,16 +603,36 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     _queueProgressSave(progress);
   }
 
-  Future<void> _flushPlaybackProgress({
-    Duration? position,
-    bool reset = false,
-  }) async {
-    final progress = reset
-        ? Duration.zero
-        : _normalizedProgressForSave(
-            position ?? _player.state.position,
-            force: true,
-          );
+  Future<void> _handlePlaybackCompleted() async {
+    if (_playbackCompleted) return;
+
+    final completionCallback = widget.onPlaybackCompleted;
+    if (completionCallback == null) {
+      _playbackCompleted = true;
+      return;
+    }
+
+    final duration = _player.state.duration;
+    final position = _player.state.position;
+    final completedPosition = duration > Duration.zero ? duration : position;
+
+    try {
+      await completionCallback(
+        Duration(seconds: completedPosition.inSeconds),
+      ).timeout(_exitProgressSaveTimeout);
+      _playbackCompleted = true;
+    } catch (_) {
+      // Completion sync should not block or crash the player UI.
+    }
+  }
+
+  Future<void> _flushPlaybackProgress({Duration? position}) async {
+    if (_playbackCompleted) return;
+
+    final progress = _normalizedProgressForSave(
+      position ?? _player.state.position,
+      force: true,
+    );
     if (progress == null || progress == _lastSavedProgress) return;
 
     try {
@@ -627,7 +652,14 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     final duration = _player.state.duration;
     if (duration > Duration.zero &&
         duration - position <= _completedProgressResetThreshold) {
-      return Duration.zero;
+      final latestUsefulPosition =
+          duration -
+          _completedProgressResetThreshold -
+          const Duration(seconds: 1);
+
+      if (latestUsefulPosition < _minimumProgressToSave) return null;
+
+      return Duration(seconds: latestUsefulPosition.inSeconds);
     }
 
     if (position < _minimumProgressToSave) return null;
@@ -656,6 +688,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
   Future<void> _saveProgress(Duration progress) async {
     final saveProgress = widget.onProgressChanged;
     if (saveProgress == null) return;
+    if (_playbackCompleted) return;
 
     _progressSaveInFlight = true;
 

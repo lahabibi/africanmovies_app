@@ -32,6 +32,13 @@ class MoviePlayerScreen extends ConsumerWidget {
                   .read(playerRepositoryProvider)
                   .savePlaybackProgress(orderId: orderId, position: position);
             },
+      onPlaybackCompleted: orderId.isEmpty
+          ? null
+          : (position) {
+              return ref
+                  .read(playerRepositoryProvider)
+                  .completePlayback(orderId: orderId, position: position);
+            },
     );
   }
 }
