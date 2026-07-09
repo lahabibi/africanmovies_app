@@ -37,7 +37,6 @@ class NativeStorePaymentGateway implements PaymentGateway {
     try {
       isAvailable = await _inAppPurchase.isAvailable();
     } on PlatformException catch (error) {
-      _logNativeStoreError(storeLabel, 'isAvailable', error, productId);
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -57,7 +56,6 @@ class NativeStorePaymentGateway implements PaymentGateway {
     try {
       productResponse = await _inAppPurchase.queryProductDetails({productId});
     } on PlatformException catch (error) {
-      _logNativeStoreError(storeLabel, 'queryProductDetails', error, productId);
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -67,11 +65,6 @@ class NativeStorePaymentGateway implements PaymentGateway {
 
     final productError = productResponse.error;
     if (productError != null) {
-      debugPrint(
-        '[$storeLabel] queryProductDetails error '
-        'productId=$productId code=${productError.code} '
-        'message=${productError.message} details=${productError.details}',
-      );
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -90,10 +83,6 @@ class NativeStorePaymentGateway implements PaymentGateway {
     );
     if (productDetails == null ||
         productResponse.notFoundIDs.contains(productId)) {
-      debugPrint(
-        '[$storeLabel] product not found productId=$productId '
-        'notFoundIDs=${productResponse.notFoundIDs}',
-      );
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -114,8 +103,7 @@ class NativeStorePaymentGateway implements PaymentGateway {
           completer: completer,
         );
       },
-      onError: (Object error) {
-        debugPrint('[$storeLabel] purchase stream error: $error');
+      onError: (Object _) {
         if (completer.isCompleted) return;
         completer.complete(
           GatewayPaymentResult(
@@ -138,7 +126,6 @@ class NativeStorePaymentGateway implements PaymentGateway {
       );
     } on PlatformException catch (error) {
       await subscription.cancel();
-      _logNativeStoreError(storeLabel, 'buyConsumable', error, productId);
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -221,15 +208,6 @@ class NativeStorePaymentGateway implements PaymentGateway {
         continue;
       }
 
-      debugPrint(
-        '[$storeLabel] purchase update productId=${purchase.productID} '
-        'expectedProductId=$productId '
-        'status=${purchase.status.name} purchaseId=${purchase.purchaseID} '
-        'errorCode=${purchase.error?.code} '
-        'errorMessage=${purchase.error?.message} '
-        'errorDetails=${purchase.error?.details}',
-      );
-
       switch (purchase.status) {
         case PurchaseStatus.pending:
           completer.complete(
@@ -309,18 +287,6 @@ class NativeStorePaymentGateway implements PaymentGateway {
       PaymentMethod.googlePlay => 'Google Play Billing',
       _ => 'Native Store',
     };
-  }
-
-  void _logNativeStoreError(
-    String storeLabel,
-    String action,
-    PlatformException error,
-    String productId,
-  ) {
-    debugPrint(
-      '[$storeLabel] $action failed productId=$productId '
-      'code=${error.code} message=${error.message} details=${error.details}',
-    );
   }
 
   String _nativeStorePlatformMessage(

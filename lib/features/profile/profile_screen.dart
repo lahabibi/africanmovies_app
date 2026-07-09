@@ -5,7 +5,6 @@ import 'package:africanmovies/features/profile/devices_screen.dart';
 import 'package:africanmovies/features/home/widgets/home_header.dart';
 import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/profile/help_support_screen.dart';
-import 'package:africanmovies/features/profile/payment_details_screen.dart';
 import 'package:africanmovies/features/profile/purchase_history_screen.dart';
 import 'package:africanmovies/shared/widgets/app_scaffold.dart';
 import 'package:africanmovies/features/profile/widgets/profile_menu_tile.dart';
@@ -17,8 +16,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/utils/responsive.dart';
 import '../auth/application/auth_device_providers.dart';
+import '../auth/application/auth_controller.dart';
 import '../auth/domain/auth_session.dart';
 import 'edit_profile_screen.dart';
 
@@ -57,11 +58,6 @@ class ProfileScreen extends ConsumerWidget {
       showsDeviceCount: true,
     ),
     _ProfileMenuItem(
-      icon: Icons.account_balance_wallet_outlined,
-      title: 'Payment Details',
-      subtitle: 'Manage your saved payment methods',
-    ),
-    _ProfileMenuItem(
       icon: Icons.receipt_long_outlined,
       title: 'Purchase History',
       subtitle: 'Orders, payments, and access status',
@@ -75,6 +71,11 @@ class ProfileScreen extends ConsumerWidget {
       icon: Icons.info_outline_rounded,
       title: 'About AfricanMovies',
       subtitle: 'App version 1.0.0',
+    ),
+    _ProfileMenuItem(
+      icon: Icons.person_remove_outlined,
+      title: 'Delete Account',
+      subtitle: 'Permanently delete your account and personal data',
     ),
   ];
 
@@ -136,6 +137,122 @@ class ProfileScreen extends ConsumerWidget {
 
     if (shouldSignOut == true) {
       await onSignOut?.call();
+    }
+  }
+
+  Future<void> _confirmAccountDeletion(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmationController = TextEditingController();
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var canDelete = false;
+
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                side: const BorderSide(color: AppColors.cardBorder),
+              ),
+              title: Text(
+                'Delete account?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'This permanently removes your profile, devices, favorites, watchlist, and viewing activity. Transaction records required for refunds, accounting, and fraud prevention are anonymized and retained.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13.sp,
+                      height: 1.45,
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'Type DELETE to continue',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: 7.h),
+                  TextField(
+                    controller: confirmationController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    onChanged: (value) {
+                      setDialogState(() => canDelete = value == 'DELETE');
+                    },
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'DELETE',
+                      hintStyle: TextStyle(color: AppColors.textSecondary),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(
+                          color: AppColors.cardBorder,
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: AppColors.danger),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: canDelete
+                      ? () => Navigator.pop(dialogContext, true)
+                      : null,
+                  child: Text(
+                    'Delete Account',
+                    style: TextStyle(
+                      color: canDelete
+                          ? AppColors.danger
+                          : AppColors.textSecondary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    confirmationController.dispose();
+
+    if (shouldDelete != true || !context.mounted) return;
+
+    try {
+      await ref.read(authControllerProvider.notifier).deleteAccount();
+    } catch (error) {
+      if (!context.mounted) return;
+      final message = error is ApiException
+          ? error.message
+          : 'We could not delete your account. Please try again.';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -350,16 +467,6 @@ class ProfileScreen extends ConsumerWidget {
                                     );
                                     break;
 
-                                  case 'Payment Details':
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const PaymentDetailsScreen(),
-                                      ),
-                                    );
-                                    break;
-
                                   case 'Purchase History':
                                     Navigator.push(
                                       context,
@@ -388,6 +495,10 @@ class ProfileScreen extends ConsumerWidget {
                                             const HelpSupportScreen(),
                                       ),
                                     );
+                                    break;
+
+                                  case 'Delete Account':
+                                    _confirmAccountDeletion(context, ref);
                                     break;
                                 }
                               },

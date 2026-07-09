@@ -7,7 +7,6 @@ import '../../auth/application/auth_controller.dart';
 import '../../movies/application/movie_providers.dart';
 import '../../movies/domain/movie.dart';
 import '../../notifications/application/notification_providers.dart';
-import '../data/flutterwave_payment_gateway.dart';
 import '../data/native_store_payment_gateway.dart';
 import '../data/pending_native_purchase_store.dart';
 import '../data/payment_repository.dart';
@@ -37,10 +36,6 @@ final pendingNativePurchaseStoreProvider = Provider<PendingNativePurchaseStore>(
     );
   },
 );
-
-final paymentGatewayProvider = Provider<PaymentGateway>((ref) {
-  return FlutterwavePaymentGateway();
-});
 
 final nativeStorePaymentGatewayProvider = Provider<NativeStorePaymentGateway>((
   ref,
@@ -173,6 +168,14 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         return result;
       }
 
+      if (!_isNativePaymentMethod(intent.method)) {
+        final result = PurchaseResult.failed(
+          'Mobile purchases must use Apple or Google Play billing.',
+        );
+        state = AsyncData(result);
+        return result;
+      }
+
       final pendingAttempt = await _savePendingNativeAttempt(
         movie: movie,
         intent: intent,
@@ -239,38 +242,11 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         return result;
       }
 
-      if (_isNativePaymentMethod(intent.method)) {
-        return _confirmNativePurchase(
-          movie: movie,
-          intent: intent,
-          gatewayResult: gatewayResult,
-        );
-      }
-
-      final confirmation = await ref
-          .read(paymentRepositoryProvider)
-          .confirmFlutterwavePayment(
-            txRef: gatewayResult.txRef,
-            transactionId: transactionId,
-          );
-
-      if (!confirmation.isSuccessful) {
-        final result = PurchaseResult.failed(
-          'Payment could not be verified. Please try again.',
-        );
-        state = AsyncData(result);
-        return result;
-      }
-
-      await _refreshAfterPurchase(movie);
-
-      final result = PurchaseResult.success(
-        txRef: gatewayResult.txRef,
-        transactionId: transactionId,
-        paymentType: confirmation.paymentType,
+      return _confirmNativePurchase(
+        movie: movie,
+        intent: intent,
+        gatewayResult: gatewayResult,
       );
-      state = AsyncData(result);
-      return result;
     } catch (error) {
       final result = PurchaseResult.failed(_messageFor(error));
       state = AsyncData(result);
@@ -280,128 +256,18 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     }
   }
 
-  Future<PurchaseResult> purchaseMovieWithSavedCard({
-    required BuildContext context,
-    required Movie movie,
-  }) async {
-    if (state.isLoading) {
-      return PurchaseResult.failed('Payment is already in progress.');
-    }
-
-    state = const AsyncLoading();
-
-    try {
-      if (movie.price <= 0) {
-        final result = PurchaseResult.failed(
-          'This movie is free. Playback will open from Watch Now.',
-        );
-        state = AsyncData(result);
-        return result;
-      }
-
-      final savedPaymentMethod = await ref.read(
-        savedPaymentMethodControllerProvider.future,
-      );
-
-      if (savedPaymentMethod == null || savedPaymentMethod.isEmpty) {
-        final result = PurchaseResult.failed(
-          'No saved payment method found. Please use another card.',
-        );
-        state = AsyncData(result);
-        return result;
-      }
-
-      if (savedPaymentMethod.needsRefresh) {
-        final result = PurchaseResult.failed(
-          'Your saved card needs to be refreshed. Please use another card.',
-        );
-        state = AsyncData(result);
-        return result;
-      }
-
-      final chargeResult = await ref
-          .read(paymentRepositoryProvider)
-          .chargeSavedCard(movie.id);
-
-      if (chargeResult.isAlreadyPurchased) {
-        final result = PurchaseResult.alreadyPurchased();
-        await _refreshHomeData();
-        state = AsyncData(result);
-        return result;
-      }
-
-      if (chargeResult.isSuccessful) {
-        return _confirmSavedCardCharge(
-          movie: movie,
-          txRef: chargeResult.txRef,
-          transactionId: chargeResult.transactionId,
-        );
-      }
-
-      if (chargeResult.requiresAuthorization) {
-        if (!context.mounted) {
-          final result = PurchaseResult.cancelled();
-          state = AsyncData(result);
-          return result;
-        }
-
-        final gatewayResult = await ref
-            .read(paymentGatewayProvider)
-            .authorizeRedirect(
-              context: context,
-              redirectUrl: chargeResult.redirectUrl!,
-              fallbackTxRef: chargeResult.txRef,
-            );
-
-        if (gatewayResult.status == GatewayPaymentStatus.cancelled) {
-          final result = PurchaseResult.cancelled();
-          state = AsyncData(result);
-          return result;
-        }
-
-        if (!gatewayResult.isCompleted) {
-          final result = PurchaseResult.failed(
-            gatewayResult.message ?? 'Payment authorization was not completed.',
-          );
-          state = AsyncData(result);
-          return result;
-        }
-
-        final transactionId =
-            gatewayResult.transactionId?.trim().isNotEmpty == true
-            ? gatewayResult.transactionId
-            : chargeResult.transactionId;
-
-        return _confirmSavedCardCharge(
-          movie: movie,
-          txRef: gatewayResult.txRef,
-          transactionId: transactionId,
-        );
-      }
-
-      final result = PurchaseResult.failed(
-        chargeResult.message.isNotEmpty
-            ? chargeResult.message
-            : 'Saved card payment failed. Please use another card.',
-      );
-      state = AsyncData(result);
-      return result;
-    } catch (error) {
-      final result = PurchaseResult.failed(_messageFor(error));
-      state = AsyncData(result);
-      return result;
-    }
-  }
-
   Future<GatewayPaymentResult> _chargeGateway({
     required BuildContext context,
     required PaymentIntent intent,
   }) {
     return switch (intent.method) {
-      PaymentMethod.flutterwave =>
-        ref
-            .read(paymentGatewayProvider)
-            .charge(context: context, intent: intent),
+      PaymentMethod.flutterwave => Future.value(
+        GatewayPaymentResult(
+          status: GatewayPaymentStatus.failed,
+          txRef: intent.txRef,
+          message: 'Mobile purchases require native store billing.',
+        ),
+      ),
       PaymentMethod.storeKit =>
         ref
             .read(nativeStorePaymentGatewayProvider)
@@ -458,11 +324,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       confirmation = await ref
           .read(paymentRepositoryProvider)
           .recoverNativePurchase(attempt: attempt);
-    } catch (error) {
-      debugPrint(
-        '[NativePayment] pending recovery deferred txRef=${attempt.txRef} '
-        'error=$error',
-      );
+    } catch (_) {
       final result = PurchaseResult.pending(txRef: attempt.txRef);
       state = AsyncData(result);
       return result;
@@ -510,12 +372,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
               attempt: attempt,
               verificationData: verificationData,
             );
-      } catch (error) {
-        debugPrint(
-          '[NativePayment] pending verification deferred '
-          'txRef=${attempt.txRef} error=$error',
-        );
-      }
+      } catch (_) {}
 
       if (confirmation?.isSuccessful == true) {
         try {
@@ -578,21 +435,13 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     if (!_isNativePaymentMethod(intent.method)) return;
 
     try {
-      debugPrint(
-        '[NativePayment] closing txRef=${intent.txRef} '
-        'providerStatus=$providerStatus',
-      );
       await ref
           .read(paymentRepositoryProvider)
           .closeNativePurchaseAttempt(
             txRef: intent.txRef,
             providerStatus: providerStatus,
           );
-      debugPrint('[NativePayment] closed txRef=${intent.txRef}');
-    } catch (error) {
-      debugPrint(
-        '[NativePayment] close failed txRef=${intent.txRef} error=$error',
-      );
+    } catch (_) {
       // Cleanup is best-effort and must not replace the store result shown.
     } finally {
       await _removePendingNativeAttemptForIntent(intent);
@@ -604,48 +453,6 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         .read(notificationsControllerProvider.notifier)
         .addPurchaseSuccess(movie);
     await _refreshHomeData();
-  }
-
-  Future<PurchaseResult> _confirmSavedCardCharge({
-    required Movie movie,
-    required String txRef,
-    required String? transactionId,
-  }) async {
-    final normalizedTxRef = txRef.trim();
-    final normalizedTransactionId = transactionId?.trim() ?? '';
-
-    if (normalizedTxRef.isEmpty || normalizedTransactionId.isEmpty) {
-      final result = PurchaseResult.failed(
-        'Payment verification details were missing. Please use another card.',
-      );
-      state = AsyncData(result);
-      return result;
-    }
-
-    final confirmation = await ref
-        .read(paymentRepositoryProvider)
-        .confirmFlutterwavePayment(
-          txRef: normalizedTxRef,
-          transactionId: normalizedTransactionId,
-        );
-
-    if (!confirmation.isSuccessful) {
-      final result = PurchaseResult.failed(
-        'Payment could not be verified. Please use another card.',
-      );
-      state = AsyncData(result);
-      return result;
-    }
-
-    await _refreshAfterPurchase(movie);
-
-    final result = PurchaseResult.success(
-      txRef: normalizedTxRef,
-      transactionId: normalizedTransactionId,
-      paymentType: 'saved_card',
-    );
-    state = AsyncData(result);
-    return result;
   }
 
   Future<PurchaseResult> _confirmNativePurchase({

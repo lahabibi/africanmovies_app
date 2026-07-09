@@ -117,6 +117,20 @@ class AuthController extends AsyncNotifier<AuthSession?> {
     state = const AsyncData(null);
   }
 
+  Future<void> deleteAccount() async {
+    final previousSession = state.asData?.value;
+    state = const AsyncLoading();
+
+    try {
+      await ref.read(authRepositoryProvider).deleteAccount();
+      await ref.read(authSessionStoreProvider).clear();
+      state = const AsyncData(null);
+    } catch (error, stackTrace) {
+      state = AsyncData(previousSession);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
   Future<void> signOutAllDevices() async {
     final previousSession = state.asData?.value;
     state = const AsyncLoading();

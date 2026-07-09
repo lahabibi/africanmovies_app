@@ -59,9 +59,7 @@ class NativePurchaseRecoveryController
 
     _subscription = InAppPurchase.instance.purchaseStream.listen(
       (purchases) => unawaited(_handlePurchases(purchases)),
-      onError: (Object error) {
-        debugPrint('[NativeRecovery] purchase stream error=$error');
-      },
+      onError: (Object _) {},
     );
     ref.onDispose(() {
       _recoveryRetryTimer?.cancel();
@@ -97,12 +95,9 @@ class NativePurchaseRecoveryController
             attempt: attempt,
             purchase: null,
           );
-        } catch (error) {
+        } catch (_) {
           shouldRetry = true;
           _showAwaitingConfirmationNotice(attempt);
-          debugPrint(
-            '[NativeRecovery] txRef=${attempt.txRef} awaiting store data: $error',
-          );
         }
       }
 
@@ -110,9 +105,8 @@ class NativePurchaseRecoveryController
         await InAppPurchase.instance.restorePurchases(
           applicationUserName: userId,
         );
-      } catch (error) {
+      } catch (_) {
         shouldRetry = shouldRetry || attempts.isNotEmpty;
-        debugPrint('[NativeRecovery] restorePurchases failed: $error');
       }
     } finally {
       _isRecoveryRunning = false;
@@ -153,12 +147,9 @@ class NativePurchaseRecoveryController
           purchase: purchase,
         );
         if (result.isPending) _scheduleRecoveryRetry();
-      } catch (error) {
+      } catch (_) {
         if (attempt != null) _showAwaitingConfirmationNotice(attempt);
         _scheduleRecoveryRetry();
-        debugPrint(
-          '[NativeRecovery] productId=${purchase.productID} recovery failed: $error',
-        );
       } finally {
         _processingTokens.remove(token);
       }
@@ -223,17 +214,13 @@ class NativePurchaseRecoveryController
     if (purchase?.pendingCompletePurchase == true) {
       try {
         await InAppPurchase.instance.completePurchase(purchase!);
-      } catch (error) {
-        debugPrint('[NativeRecovery] completePurchase failed: $error');
-      }
+      } catch (_) {}
     }
 
     ref.invalidate(homeDataProvider);
     try {
       await ref.read(homeDataProvider.future);
-    } catch (error) {
-      debugPrint('[NativeRecovery] home refresh failed: $error');
-    }
+    } catch (_) {}
 
     final transactionKey =
         result.transactionId ?? txRef ?? purchase?.purchaseID ?? '';

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
@@ -9,6 +10,24 @@ import '../../shared/widgets/app_screen_header.dart';
 
 class AboutAfricanMoviesScreen extends StatelessWidget {
   const AboutAfricanMoviesScreen({super.key});
+
+  static final _privacyPolicyUrl = Uri.parse(
+    'https://www.sangaentertainment.com/privacy-policy/',
+  );
+  static final _termsUrl = Uri.parse(
+    'https://www.sangaentertainment.com/terms-and-conditions/',
+  );
+
+  Future<void> _openUrl(BuildContext context, Uri url) async {
+    final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (opened || !context.mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('Could not open this page.')),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +127,31 @@ class AboutAfricanMoviesScreen extends StatelessWidget {
                         ),
                       ),
 
+                      SizedBox(height: 18.h),
+
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.card.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Column(
+                          children: [
+                            _LegalLinkTile(
+                              icon: Icons.privacy_tip_outlined,
+                              title: 'Privacy Policy',
+                              onTap: () => _openUrl(context, _privacyPolicyUrl),
+                            ),
+                            const _Divider(),
+                            _LegalLinkTile(
+                              icon: Icons.description_outlined,
+                              title: 'Terms and Conditions',
+                              onTap: () => _openUrl(context, _termsUrl),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       SizedBox(height: 46.h),
 
                       Center(
@@ -148,6 +192,39 @@ class AboutAfricanMoviesScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LegalLinkTile extends StatelessWidget {
+  const _LegalLinkTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: AppColors.heroButton, size: 25.sp),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      trailing: Icon(
+        Icons.open_in_new_rounded,
+        color: AppColors.textSecondary,
+        size: 18.sp,
       ),
     );
   }

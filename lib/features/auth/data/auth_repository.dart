@@ -126,6 +126,18 @@ class AuthRepository {
     }
   }
 
+  Future<void> deleteAccount() async {
+    try {
+      await _apiClient.delete<Map<String, dynamic>>(
+        '/auth/account',
+        data: {'confirmation': 'DELETE'},
+      );
+      await _tokenStore.clear();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<List<AuthDeviceSession>> fetchDevices() async {
     try {
       final response = await _apiClient.get<dynamic>('/auth/devices');
