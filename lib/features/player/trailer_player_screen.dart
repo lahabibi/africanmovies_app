@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:audio_session/audio_session.dart' as audio_session;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
+import '../../core/platform/app_orientation.dart';
 import 'video_url_resolver.dart';
 
 class TrailerPlayerScreen extends StatefulWidget {
@@ -88,7 +88,6 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
   Duration? _lastSavedProgress;
   Duration? _queuedProgressSave;
   DateTime? _lastProgressSaveAt;
-  bool _orientationWasChanged = false;
   double _lastAudibleVolume = 100;
   String? _pendingErrorMessage;
   String? _fatalErrorMessage;
@@ -211,9 +210,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     _warmResumeTimer?.cancel();
     unawaited(_flushPlaybackProgress());
     _player.dispose();
-    if (_orientationWasChanged) {
-      unawaited(_enterPortraitMode());
-    }
+    unawaited(AppOrientation.lockPortrait());
     super.dispose();
   }
 
@@ -332,16 +329,15 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
   Future<void> _toggleOrientation() async {
     _showControls();
 
-    _orientationWasChanged = true;
     final size = MediaQuery.sizeOf(context);
     final isLandscape = size.width > size.height;
 
     if (isLandscape) {
-      await _enterPortraitMode();
+      await AppOrientation.lockPortrait();
       return;
     }
 
-    await _enterLandscapeMode();
+    await AppOrientation.lockLandscape();
   }
 
   Future<void> _handleBack() async {
@@ -352,8 +348,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
 
     if (isLandscape) {
       _showControls();
-      _orientationWasChanged = true;
-      await _enterPortraitMode();
+      await AppOrientation.lockPortrait();
       return;
     }
 
@@ -366,19 +361,10 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     }
 
     if (!mounted) return;
+    await AppOrientation.lockPortrait();
+    if (!mounted) return;
     _allowRoutePop = true;
     Navigator.pop(context);
-  }
-
-  Future<void> _enterLandscapeMode() async {
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-  }
-
-  Future<void> _enterPortraitMode() async {
-    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   Future<void> _prepareAudioOutput() async {
