@@ -16,6 +16,7 @@ import '../auth/application/auth_controller.dart';
 import '../home/home_screen.dart';
 import '../payment/application/native_purchase_recovery_controller.dart';
 import '../payment/application/payment_providers.dart';
+import '../payment/domain/purchase_result.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -29,6 +30,7 @@ class _MainScreenState extends ConsumerState<MainScreen>
   int _currentIndex = 0;
   String? _selectedGenre;
   bool _isValidatingSession = false;
+  final Set<String> _libraryRedirectPurchaseKeys = {};
 
   @override
   void initState() {
@@ -86,6 +88,23 @@ class _MainScreenState extends ConsumerState<MainScreen>
             txRef: result.txRef,
             transactionId: result.transactionId,
           );
+
+      if (result.status != PurchaseResultStatus.success) return;
+
+      final redirectKey = result.transactionId?.trim().isNotEmpty == true
+          ? result.transactionId!.trim()
+          : result.txRef?.trim() ?? '';
+      if (redirectKey.isEmpty ||
+          !_libraryRedirectPurchaseKeys.add(redirectKey)) {
+        return;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        setState(() => _currentIndex = 3);
+      });
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
