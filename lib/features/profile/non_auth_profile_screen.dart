@@ -202,12 +202,16 @@ class NonAuthProfileScreen extends StatelessWidget {
                               size: 20.sp,
                             ),
                             SizedBox(width: 10.w),
-                            Text(
-                              'Only pay for the movies you watch.',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: .72),
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w500,
+                            Flexible(
+                              child: Text(
+                                'Only pay for the movies you watch.',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: .72),
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],

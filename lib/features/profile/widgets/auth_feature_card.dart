@@ -19,12 +19,19 @@ class AuthFeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isCompactPhone = size.shortestSide < 600 && size.height <= 700;
+    final cardHeight = isCompactPhone ? 150.0 : 142.h;
+    final cardPadding = isCompactPhone ? 14.w : 16.w;
+    final iconSize = isCompactPhone ? 30.sp : 34.sp;
+    final lockSize = isCompactPhone ? 30.w : 32.w;
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: 142.h,
-          padding: EdgeInsets.all(16.w),
+          height: cardHeight,
+          padding: EdgeInsets.all(cardPadding),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: .035),
             borderRadius: BorderRadius.circular(18.r),
@@ -36,10 +43,10 @@ class AuthFeatureCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(icon, color: AppColors.primary, size: 34.sp),
+                  Icon(icon, color: AppColors.primary, size: iconSize),
                   Container(
-                    width: 32.w,
-                    height: 32.w,
+                    width: lockSize,
+                    height: lockSize,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withValues(alpha: .10),
@@ -59,21 +66,25 @@ class AuthFeatureCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 17.sp,
+                        fontSize: isCompactPhone ? 15.5.sp : 17.sp,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
 
-                    SizedBox(height: 6.h),
+                    SizedBox(height: isCompactPhone ? 4.h : 6.h),
 
                     Text(
                       subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: .65),
-                        fontSize: 12.sp,
-                        height: 1.35,
+                        fontSize: isCompactPhone ? 11.sp : 12.sp,
+                        height: isCompactPhone ? 1.25 : 1.35,
                       ),
                     ),
                   ],
