@@ -23,12 +23,14 @@ class MovieSmallAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final contentColor = isActive ? AppColors.heroButton : Colors.white;
+    final size = MediaQuery.sizeOf(context);
+    final isCompactPhone = size.shortestSide < 600 && size.height <= 700;
 
     return GestureDetector(
       onTap: isLoading ? null : onTap,
       child: Container(
-        width: 60.w,
-        height: 58.h,
+        width: isCompactPhone ? 58.w : 60.w,
+        height: isCompactPhone ? 58 : 58.h,
         decoration: BoxDecoration(
           color: isActive
               ? AppColors.heroButton.withValues(alpha: 0.12)
@@ -53,12 +55,18 @@ class MovieSmallAction extends StatelessWidget {
                 ),
               )
             else
-              Icon(icon, color: contentColor, size: 22.sp),
-            SizedBox(height: 5.h),
+              Icon(
+                icon,
+                color: contentColor,
+                size: isCompactPhone ? 20.sp : 22.sp,
+              ),
+            SizedBox(height: isCompactPhone ? 4 : 5.h),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10.sp,
+                fontSize: isCompactPhone ? 9.2.sp : 10.sp,
                 fontWeight: FontWeight.w600,
                 color: contentColor,
               ),

@@ -463,6 +463,9 @@ class _GenresStripSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isCompactPhone = size.shortestSide < 600 && size.height <= 700;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -473,7 +476,7 @@ class _GenresStripSection extends StatelessWidget {
         ),
         SizedBox(height: 10.h),
         SizedBox(
-          height: 70.h,
+          height: isCompactPhone ? 64 : 70.h,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: items.length,

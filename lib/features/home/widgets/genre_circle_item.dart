@@ -18,17 +18,22 @@ class GenreCircleItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isCompactPhone = size.shortestSide < 600 && size.height <= 700;
+    final itemWidth = isCompactPhone ? 42.w : 44.w;
+    final iconSize = isCompactPhone ? 42.w : 46.w;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 44.w,
+        width: itemWidth,
         child: Column(
           children: [
             Container(
-              width: 46.w,
-              height: 46.w,
-              padding: EdgeInsets.all(8.w),
+              width: iconSize,
+              height: iconSize,
+              padding: EdgeInsets.all(isCompactPhone ? 7.w : 8.w),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.transparent,
@@ -43,13 +48,13 @@ class GenreCircleItem extends StatelessWidget {
                 color: AppColors.primary,
               ),
             ),
-            SizedBox(height: 5.h),
+            SizedBox(height: isCompactPhone ? 3.h : 5.h),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 10.sp,
+                fontSize: isCompactPhone ? 9.2.sp : 10.sp,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textPrimary,
               ),

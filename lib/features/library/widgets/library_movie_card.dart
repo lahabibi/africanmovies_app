@@ -24,6 +24,9 @@ class LibraryMovieCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isCompactPhone = size.shortestSide < 600 && size.height <= 700;
+
     return SizedBox(
       width: 108.w, //118
       child: Column(
@@ -81,7 +84,7 @@ class LibraryMovieCard extends StatelessWidget {
 
           SizedBox(
             width: double.infinity,
-            height: 24.h,
+            height: isCompactPhone ? 28 : 24.h,
             child: ElevatedButton.icon(
               onPressed: onTap,
               icon: Icon(
@@ -92,10 +95,10 @@ class LibraryMovieCard extends StatelessWidget {
               label: Text(
                 actionText,
                 maxLines: 1,
-                overflow: TextOverflow.visible,
+                overflow: TextOverflow.ellipsis,
                 softWrap: false,
                 style: TextStyle(
-                  fontSize: 10.sp,
+                  fontSize: isCompactPhone ? 9.sp : 10.sp,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),

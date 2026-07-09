@@ -61,6 +61,18 @@ class HeroBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final isCompactPhone =
+        screenSize.shortestSide < 600 && screenSize.height <= 700;
+    final bannerPadding = isCompactPhone ? 12.w : 14.w;
+    final titleFontSize = isCompactPhone ? 24.sp : 30.sp;
+    final descriptionMaxLines = isCompactPhone ? 1 : 2;
+    final sectionGap = isCompactPhone ? 6.h : 10.h;
+    final buttonHeight = isCompactPhone ? 28.h : 32.h;
+    final buttonFontSize = isCompactPhone ? 10.5.sp : 12.sp;
+    final playButtonWidth = isCompactPhone ? 102.w : 110.w;
+    final trailerButtonWidth = isCompactPhone ? 78.w : 82.w;
+
     return Container(
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
@@ -104,14 +116,14 @@ class HeroBanner extends StatelessWidget {
           ),
 
           Padding(
-            padding: EdgeInsets.all(14.w),
+            padding: EdgeInsets.all(bannerPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'FEATURED MOVIE',
                   style: TextStyle(
-                    fontSize: 7.sp,
+                    fontSize: isCompactPhone ? 6.5.sp : 7.sp,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primary,
                   ),
@@ -124,7 +136,7 @@ class HeroBanner extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 30.sp,
+                    fontSize: titleFontSize,
                     height: 0.9,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
@@ -139,18 +151,16 @@ class HeroBanner extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(height: 10.h),
+                SizedBox(height: sectionGap),
 
                 ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.sizeOf(context).width * 0.5,
-                  ),
+                  constraints: BoxConstraints(maxWidth: screenSize.width * 0.5),
                   child: Text(
                     description,
-                    maxLines: 2,
+                    maxLines: descriptionMaxLines,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 8.sp,
+                      fontSize: isCompactPhone ? 7.5.sp : 8.sp,
                       height: 1.25,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -158,43 +168,51 @@ class HeroBanner extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(height: 10.h),
+                SizedBox(height: sectionGap),
 
                 Row(
                   children: [
-                    _MetaText(year),
-                    _Dot(),
-                    _MetaText(genre),
-                    _Dot(),
-                    _MetaText(releaseType),
-                    _Dot(),
-                    _MetaText(duration),
+                    Flexible(child: _MetaText(year, compact: isCompactPhone)),
+                    _Dot(compact: isCompactPhone),
+                    Flexible(child: _MetaText(genre, compact: isCompactPhone)),
+                    _Dot(compact: isCompactPhone),
+                    Flexible(
+                      flex: 2,
+                      child: _MetaText(releaseType, compact: isCompactPhone),
+                    ),
+                    _Dot(compact: isCompactPhone),
+                    Flexible(
+                      child: _MetaText(duration, compact: isCompactPhone),
+                    ),
                     SizedBox(width: 8.w),
-                    _AgeBadge(ageRating),
+                    _AgeBadge(ageRating, compact: isCompactPhone),
                   ],
                 ),
 
-                SizedBox(height: 12.h),
+                SizedBox(height: isCompactPhone ? 8.h : 12.h),
 
                 Row(
                   children: [
                     AppButton(
                       text: 'Watch Now',
-                      width: 110.w,
-                      height: 32.h,
-                      fontSize: 12.sp,
+                      width: playButtonWidth,
+                      height: buttonHeight,
+                      fontSize: buttonFontSize,
                       borderRadius: AppRadius.xs,
                       borderColor: AppColors.heroButton,
                       backgroundColor: AppColors.heroButton,
-                      icon: Icon(Icons.play_arrow_rounded, size: 16.sp),
+                      icon: Icon(
+                        Icons.play_arrow_rounded,
+                        size: isCompactPhone ? 14.sp : 16.sp,
+                      ),
                       onPressed: onWatchNowTap ?? () {},
                     ),
                     SizedBox(width: 12.w),
                     AppButton(
                       text: 'Trailer',
-                      width: 82.w,
-                      height: 32.h,
-                      fontSize: 12.sp,
+                      width: trailerButtonWidth,
+                      height: buttonHeight,
+                      fontSize: buttonFontSize,
                       borderRadius: AppRadius.xs,
                       variant: AppButtonVariant.outline,
                       borderColor: AppColors.textPrimary,
@@ -224,15 +242,18 @@ class HeroBanner extends StatelessWidget {
 
 class _MetaText extends StatelessWidget {
   final String text;
+  final bool compact;
 
-  const _MetaText(this.text);
+  const _MetaText(this.text, {this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        fontSize: 8.sp,
+        fontSize: compact ? 7.5.sp : 8.sp,
         fontWeight: FontWeight.w500,
         color: Colors.white.withValues(alpha: 0.82),
       ),
@@ -241,14 +262,18 @@ class _MetaText extends StatelessWidget {
 }
 
 class _Dot extends StatelessWidget {
+  final bool compact;
+
+  const _Dot({this.compact = false});
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 6.w),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 4.w : 6.w),
       child: Text(
         '•',
         style: TextStyle(
-          fontSize: 11.sp,
+          fontSize: compact ? 9.sp : 11.sp,
           color: Colors.white.withValues(alpha: 0.65),
         ),
       ),
@@ -258,13 +283,17 @@ class _Dot extends StatelessWidget {
 
 class _AgeBadge extends StatelessWidget {
   final String text;
+  final bool compact;
 
-  const _AgeBadge(this.text);
+  const _AgeBadge(this.text, {this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 4.w : 5.w,
+        vertical: compact ? 1.5.h : 2.h,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4.r),
@@ -273,7 +302,7 @@ class _AgeBadge extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 10.sp,
+          fontSize: compact ? 8.5.sp : 10.sp,
           fontWeight: FontWeight.w700,
           color: Colors.white,
         ),

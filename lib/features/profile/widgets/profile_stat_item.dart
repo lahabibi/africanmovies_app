@@ -17,6 +17,9 @@ class ProfileStatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isCompactPhone = size.shortestSide < 600 && size.height <= 700;
+
     return Column(
       children: [
         Row(
@@ -25,24 +28,27 @@ class ProfileStatItem extends StatelessWidget {
             Icon(
               icon,
               color: AppColors.heroButton,
-              size: 26.sp,
+              size: isCompactPhone ? 22.sp : 26.sp,
             ),
-            SizedBox(width: 12.w),
+            SizedBox(width: isCompactPhone ? 8.w : 12.w),
             Text(
               value,
               style: TextStyle(
-                fontSize: 24.sp,
+                fontSize: isCompactPhone ? 21.sp : 24.sp,
                 fontWeight: FontWeight.w800,
                 color: Colors.white,
               ),
             ),
           ],
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: isCompactPhone ? 7.h : 10.h),
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14.sp,
+            fontSize: isCompactPhone ? 11.5.sp : 14.sp,
             color: AppColors.textSecondary,
           ),
         ),

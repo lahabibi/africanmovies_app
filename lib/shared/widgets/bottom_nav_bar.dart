@@ -36,9 +36,15 @@ class BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = Responsive.isTablet(context);
-    final horizontalMargin = isTablet ? 24.0 : 20.w;
-    final bottomMargin = isTablet ? 24.0 : 24.h;
-    final navHeight = isTablet ? 70.0 : 66.h;
+    final isCompactPhone =
+        !isTablet && MediaQuery.sizeOf(context).height <= 700;
+    final horizontalMargin = isTablet ? 24.0 : (isCompactPhone ? 14.w : 20.w);
+    final bottomMargin = isTablet ? 24.0 : (isCompactPhone ? 12.h : 24.h);
+    final navHeight = isTablet ? 70.0 : (isCompactPhone ? 60.h : 66.h);
+    final verticalPadding = isTablet ? 10.0 : (isCompactPhone ? 7.h : 10.h);
+    final iconSize = isTablet ? 22.0 : (isCompactPhone ? 18.w : 20.w);
+    final labelGap = isTablet ? 5.0 : (isCompactPhone ? 3.h : 5.h);
+    final labelFontSize = isTablet ? 11.0 : (isCompactPhone ? 9.2.sp : 10.sp);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     final availableWidth =
@@ -63,7 +69,7 @@ class BottomNavBar extends StatelessWidget {
             child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: isTablet ? 14 : 12.w,
-                vertical: isTablet ? 10 : 10.h,
+                vertical: verticalPadding,
               ),
               decoration: BoxDecoration(
                 color: AppColors.card.withValues(alpha: 0.92),
@@ -84,19 +90,19 @@ class BottomNavBar extends StatelessWidget {
                         children: [
                           Image.asset(
                             item.icon,
-                            width: isTablet ? 22 : 20.w,
-                            height: isTablet ? 22 : 20.w,
+                            width: iconSize,
+                            height: iconSize,
                             color: selected
                                 ? AppColors.primary
                                 : AppColors.textSecondary,
                           ),
-                          SizedBox(height: isTablet ? 5 : 5.h),
+                          SizedBox(height: labelGap),
                           Text(
                             item.label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: isTablet ? 11 : 10.sp,
+                              fontSize: labelFontSize,
                               fontWeight: FontWeight.w500,
                               color: selected
                                   ? AppColors.primary

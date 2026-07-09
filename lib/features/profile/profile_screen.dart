@@ -259,6 +259,9 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final headerHeight = Responsive.headerHeight(context);
+    final size = MediaQuery.sizeOf(context);
+    final isCompactPhone = size.shortestSide < 600 && size.height <= 700;
+    final avatarSize = isCompactPhone ? 76.w : 96.w;
     final deviceCountText = ref
         .watch(authDevicesProvider)
         .when(
@@ -303,10 +306,10 @@ class ProfileScreen extends ConsumerWidget {
                         children: [
                           ProfileAvatar(
                             profileUrl: user.profileUrl,
-                            size: 96.w,
+                            size: avatarSize,
                           ),
 
-                          SizedBox(width: 18.w),
+                          SizedBox(width: isCompactPhone ? 12.w : 18.w),
 
                           Expanded(
                             child: Column(
@@ -340,44 +343,52 @@ class ProfileScreen extends ConsumerWidget {
 
                           SizedBox(width: 10.w),
 
-                          InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const EditProfileScreen(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12.w,
-                                vertical: 10.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.card.withValues(alpha: 0.7),
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.sm,
-                                ),
-                                border: Border.all(color: AppColors.cardBorder),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.edit_outlined,
-                                    color: AppColors.heroButton,
-                                    size: 16.sp,
+                          Tooltip(
+                            message: 'Edit Profile',
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const EditProfileScreen(),
                                   ),
-                                  SizedBox(width: 6.w),
-                                  Text(
-                                    'Edit Profile',
-                                    style: TextStyle(
-                                      fontSize: 12.sp,
-                                      fontWeight: FontWeight.w700,
+                                );
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isCompactPhone ? 10.w : 12.w,
+                                  vertical: isCompactPhone ? 9.h : 10.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.card.withValues(alpha: 0.7),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.sm,
+                                  ),
+                                  border: Border.all(
+                                    color: AppColors.cardBorder,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.edit_outlined,
                                       color: AppColors.heroButton,
+                                      size: 16.sp,
                                     ),
-                                  ),
-                                ],
+                                    if (!isCompactPhone) ...[
+                                      SizedBox(width: 6.w),
+                                      Text(
+                                        'Edit Profile',
+                                        style: TextStyle(
+                                          fontSize: 12.sp,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.heroButton,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),

@@ -23,12 +23,17 @@ class MoviePurchaseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isEnabled = onTap != null && !isLoading;
+    final size = MediaQuery.sizeOf(context);
+    final isCompactPhone = size.shortestSide < 600 && size.height <= 700;
 
     return GestureDetector(
       onTap: isEnabled ? onTap : null,
       child: Container(
-        height: 58.h,
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        height: isCompactPhone ? 58 : 58.h,
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompactPhone ? 12.w : 16.w,
+          vertical: isCompactPhone ? 9 : 12.h,
+        ),
         decoration: BoxDecoration(
           color: isEnabled
               ? AppColors.deepBlue
@@ -39,15 +44,19 @@ class MoviePurchaseButton extends StatelessWidget {
           children: [
             if (isLoading)
               SizedBox(
-                width: 18.sp,
-                height: 18.sp,
+                width: isCompactPhone ? 16.sp : 18.sp,
+                height: isCompactPhone ? 16.sp : 18.sp,
                 child: const CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
               )
             else
-              Icon(icon, color: Colors.white, size: 18.sp),
+              Icon(
+                icon,
+                color: Colors.white,
+                size: isCompactPhone ? 17.sp : 18.sp,
+              ),
             SizedBox(width: 4.w),
             Expanded(
               child: Column(
@@ -60,7 +69,7 @@ class MoviePurchaseButton extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 11.sp,
+                      fontSize: isCompactPhone ? 10.5.sp : 11.sp,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -72,7 +81,7 @@ class MoviePurchaseButton extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w500,
-                      fontSize: 10.sp,
+                      fontSize: isCompactPhone ? 9.3.sp : 10.sp,
                     ),
                   ),
                 ],
