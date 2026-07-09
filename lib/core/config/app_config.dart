@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class AppConfig {
   AppConfig._();
 
@@ -14,10 +12,7 @@ class AppConfig {
   static String get apiBaseUrl {
     if (_apiBaseUrlOverride.isNotEmpty) return _apiBaseUrlOverride;
 
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.android => androidEmulatorDevApiBaseUrl,
-      _ => localNetworkDevApiBaseUrl,
-    };
+    return localNetworkDevApiBaseUrl;
   }
 
   static const requestTimeout = Duration(seconds: 20);
