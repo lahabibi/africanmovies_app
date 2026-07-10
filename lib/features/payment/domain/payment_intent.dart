@@ -1,4 +1,4 @@
-enum PaymentMethod { none, flutterwave, storeKit, googlePlay }
+enum PaymentMethod { none, storeKit, googlePlay }
 
 enum PaymentIntentStatus { pending, alreadyPurchased }
 
@@ -69,7 +69,6 @@ class PaymentIntent {
 
   static PaymentMethod _readMethod(Object? value) {
     return switch (value?.toString()) {
-      'flutterwave' => PaymentMethod.flutterwave,
       'storeKit' => PaymentMethod.storeKit,
       'googlePlay' => PaymentMethod.googlePlay,
       _ => PaymentMethod.none,

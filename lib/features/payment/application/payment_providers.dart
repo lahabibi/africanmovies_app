@@ -10,23 +10,15 @@ import '../../notifications/application/notification_providers.dart';
 import '../data/native_store_payment_gateway.dart';
 import '../data/pending_native_purchase_store.dart';
 import '../data/payment_repository.dart';
-import '../data/payment_preferences_store.dart';
 import '../domain/payment_gateway.dart';
 import '../domain/payment_history.dart';
 import '../domain/payment_confirmation.dart';
 import '../domain/payment_intent.dart';
 import '../domain/pending_native_purchase.dart';
 import '../domain/purchase_result.dart';
-import '../domain/saved_payment_method.dart';
 
 final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
   return PaymentRepository(apiClient: ref.watch(apiClientProvider));
-});
-
-final paymentPreferencesStoreProvider = Provider<PaymentPreferencesStore>((
-  ref,
-) {
-  return PaymentPreferencesStore();
 });
 
 final pendingNativePurchaseStoreProvider = Provider<PendingNativePurchaseStore>(
@@ -48,84 +40,9 @@ final purchaseControllerProvider =
       PurchaseController.new,
     );
 
-final savedPaymentMethodControllerProvider =
-    AsyncNotifierProvider<SavedPaymentMethodController, SavedPaymentMethod?>(
-      SavedPaymentMethodController.new,
-    );
-
-final saveCardPromptPreferenceControllerProvider =
-    AsyncNotifierProvider<SaveCardPromptPreferenceController, bool>(
-      SaveCardPromptPreferenceController.new,
-    );
-
 final paymentHistoryProvider = FutureProvider<PaymentHistoryResponse>((ref) {
   return ref.watch(paymentRepositoryProvider).fetchPaymentHistory();
 });
-
-class SaveCardPromptPreferenceController extends AsyncNotifier<bool> {
-  @override
-  Future<bool> build() async {
-    final isHidden = await ref
-        .watch(paymentPreferencesStoreProvider)
-        .isSaveCardPromptHidden();
-
-    return !isHidden;
-  }
-
-  Future<void> setShouldAskAfterCheckout(bool shouldAsk) async {
-    final previousValue = state.asData?.value ?? true;
-    state = AsyncData(shouldAsk);
-
-    try {
-      final store = ref.read(paymentPreferencesStoreProvider);
-      if (shouldAsk) {
-        await store.showSaveCardPrompt();
-      } else {
-        await store.hideSaveCardPrompt();
-      }
-    } catch (error, stackTrace) {
-      state = AsyncData(previousValue);
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-}
-
-class SavedPaymentMethodController extends AsyncNotifier<SavedPaymentMethod?> {
-  @override
-  Future<SavedPaymentMethod?> build() {
-    return ref.watch(paymentRepositoryProvider).fetchSavedPaymentMethod();
-  }
-
-  Future<SavedPaymentMethod> saveFromTransaction(String transactionId) async {
-    final previousPaymentMethod = state.asData?.value;
-    state = const AsyncLoading();
-
-    try {
-      final paymentMethod = await ref
-          .read(paymentRepositoryProvider)
-          .savePaymentMethod(transactionId: transactionId, isNewCard: true);
-      state = AsyncData(paymentMethod);
-
-      return paymentMethod;
-    } catch (error, stackTrace) {
-      state = AsyncData(previousPaymentMethod);
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-
-  Future<void> removeSavedPaymentMethod() async {
-    final previousPaymentMethod = state.asData?.value;
-    state = const AsyncLoading();
-
-    try {
-      await ref.read(paymentRepositoryProvider).removeSavedPaymentMethod();
-      state = const AsyncData(null);
-    } catch (error, stackTrace) {
-      state = AsyncData(previousPaymentMethod);
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-}
 
 class PurchaseController extends AsyncNotifier<PurchaseResult?> {
   bool _isPurchaseInProgress = false;
@@ -261,13 +178,6 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     required PaymentIntent intent,
   }) {
     return switch (intent.method) {
-      PaymentMethod.flutterwave => Future.value(
-        GatewayPaymentResult(
-          status: GatewayPaymentStatus.failed,
-          txRef: intent.txRef,
-          message: 'Mobile purchases require native store billing.',
-        ),
-      ),
       PaymentMethod.storeKit =>
         ref
             .read(nativeStorePaymentGatewayProvider)
