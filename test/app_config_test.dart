@@ -9,20 +9,34 @@ void main() {
     );
   });
 
-  test('debug builds use the local development API by default', () {
+  test('debug builds use the production API unless explicitly overridden', () {
     expect(
       AppConfig.resolveApiBaseUrl(isRelease: false),
-      AppConfig.localNetworkDevApiBaseUrl,
+      AppConfig.productionApiBaseUrl,
     );
   });
 
-  test('compile-time API override takes precedence in every build mode', () {
-    const override = 'https://staging-api.africanmovies.com/api';
+  test('release builds ignore compile-time API overrides', () {
+    const override = 'https://api-preview.africanmovies.com/api';
 
     expect(
       AppConfig.resolveApiBaseUrl(isRelease: true, override: override),
+      AppConfig.productionApiBaseUrl,
+    );
+  });
+
+  test('debug builds accept compile-time HTTPS API overrides', () {
+    const override = 'https://api-preview.africanmovies.com/api';
+
+    expect(
+      AppConfig.resolveApiBaseUrl(isRelease: false, override: override),
       override,
     );
+  });
+
+  test('debug builds accept compile-time local API overrides', () {
+    const override = 'http://192.0.2.10:3200/api';
+
     expect(
       AppConfig.resolveApiBaseUrl(isRelease: false, override: override),
       override,

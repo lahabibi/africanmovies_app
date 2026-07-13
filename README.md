@@ -1,17 +1,22 @@
-# africanmovies
+# AfricanMovies
 
-A new Flutter project.
+Flutter mobile app for AfricanMovies.
 
-## Getting Started
+## API configuration
 
-This project is a starting point for a Flutter application.
+The app defaults to the production API:
 
-A few resources to get you started if this is your first Flutter project:
+```text
+https://api.africanmovies.com/api
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+For local backend testing in debug or profile builds, pass the API origin at
+run time:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter run \
+  --dart-define=AFRICAN_MOVIES_API_BASE_URL=http://YOUR_DEVICE_REACHABLE_HOST:3200/api
+```
+
+Release builds always use the production API and must not be shipped with a
+local, LAN, staging, or temporary tunnel API URL.
