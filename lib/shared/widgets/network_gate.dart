@@ -1,16 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
 import '../../core/network/network_status.dart';
 import '../../core/providers/network_providers.dart';
-import '../../core/utils/responsive.dart';
 import '../../features/movies/application/movie_providers.dart';
-import 'app_button.dart';
-import 'app_scaffold.dart';
 
 class NetworkGate extends ConsumerStatefulWidget {
   final Widget child;
@@ -22,7 +20,11 @@ class NetworkGate extends ConsumerStatefulWidget {
 }
 
 class _NetworkGateState extends ConsumerState<NetworkGate> {
-  bool _showOffline = false;
+  static const _unstableConnectionDelay = Duration(seconds: 6);
+
+  Timer? _unstableConnectionTimer;
+  bool _showConnectionBanner = false;
+  bool _hadUnstableConnection = false;
 
   @override
   void initState() {
@@ -43,17 +45,22 @@ class _NetworkGateState extends ConsumerState<NetworkGate> {
     final nextStatus = next.value;
 
     if (next.hasError || nextStatus == NetworkStatus.offline) {
-      _setOfflineVisible(true);
+      _hadUnstableConnection = true;
+      _scheduleConnectionBanner();
       return;
     }
 
     if (nextStatus == NetworkStatus.online) {
       final wasOffline =
-          _showOffline ||
+          _hadUnstableConnection ||
+          _showConnectionBanner ||
           previousStatus == NetworkStatus.offline ||
           previous?.hasError == true;
 
-      _setOfflineVisible(false);
+      _hadUnstableConnection = false;
+      _unstableConnectionTimer?.cancel();
+      _unstableConnectionTimer = null;
+      _setConnectionBannerVisible(false);
 
       if (wasOffline) {
         ref.invalidate(homeDataProvider);
@@ -62,121 +69,169 @@ class _NetworkGateState extends ConsumerState<NetworkGate> {
     }
   }
 
-  void _setOfflineVisible(bool visible) {
-    if (_showOffline == visible) return;
-
-    if (!mounted) {
-      _showOffline = visible;
+  void _scheduleConnectionBanner() {
+    if (_showConnectionBanner || _unstableConnectionTimer?.isActive == true) {
       return;
     }
 
-    setState(() => _showOffline = visible);
+    _unstableConnectionTimer = Timer(_unstableConnectionDelay, () {
+      _unstableConnectionTimer = null;
+      if (!_hadUnstableConnection) return;
+      _setConnectionBannerVisible(true);
+    });
+  }
+
+  void _setConnectionBannerVisible(bool visible) {
+    if (_showConnectionBanner == visible) return;
+
+    if (!mounted) {
+      _showConnectionBanner = visible;
+      return;
+    }
+
+    setState(() => _showConnectionBanner = visible);
+  }
+
+  @override
+  void dispose() {
+    _unstableConnectionTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final networkState = ref.watch(networkStatusProvider);
-    final status = networkState.value;
-    final showOffline =
-        _showOffline ||
-        networkState.hasError ||
-        status == NetworkStatus.offline;
 
-    if (!showOffline) return widget.child;
-
-    return _NoInternetScreen(
-      isChecking: networkState.isLoading,
-      onRetry: () {
-        _setOfflineVisible(true);
-        ref.invalidate(networkStatusProvider);
-      },
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: IgnorePointer(
+            ignoring: !_showConnectionBanner,
+            child: AnimatedSlide(
+              offset: _showConnectionBanner ? Offset.zero : const Offset(0, -1),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              child: AnimatedOpacity(
+                opacity: _showConnectionBanner ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: SafeArea(
+                  bottom: false,
+                  child: _ConnectionBanner(
+                    isChecking: networkState.isLoading,
+                    onRetry: () => ref.invalidate(networkStatusProvider),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _NoInternetScreen extends StatelessWidget {
+class _ConnectionBanner extends StatelessWidget {
   final bool isChecking;
   final VoidCallback onRetry;
 
-  const _NoInternetScreen({required this.isChecking, required this.onRetry});
+  const _ConnectionBanner({required this.isChecking, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = Responsive.isTablet(context);
-    final iconSize = isTablet ? 36.0 : 30.sp;
-    final cardWidth = isTablet ? 460.0 : double.infinity;
-
-    return AppScaffold(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: cardWidth),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                AppAssets.logo,
-                height: isTablet ? 64 : 52.h,
-                fit: BoxFit.contain,
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+          decoration: BoxDecoration(
+            color: const Color(0xFF07111E).withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: 0.42),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.26),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
-              SizedBox(height: isTablet ? 38 : 32.h),
+            ],
+          ),
+          child: Row(
+            children: [
               Container(
-                width: isTablet ? 82 : 72.w,
-                height: isTablet ? 82 : 72.w,
+                width: 32.w,
+                height: 32.w,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.primary.withValues(alpha: 0.12),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.28),
-                  ),
                 ),
-                child: Icon(
-                  Icons.wifi_off_rounded,
-                  size: iconSize,
-                  color: AppColors.primary,
-                ),
-              ),
-              SizedBox(height: isTablet ? 24 : 20.h),
-              Text(
-                'No internet connection',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: isTablet ? 26 : 22.sp,
-                  height: 1.1,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 10.h),
-              Text(
-                'Check your Wi-Fi or mobile data. We will refresh automatically once you are back online.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: isTablet ? 15 : 14.sp,
-                  height: 1.45,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              SizedBox(height: isTablet ? 28 : 24.h),
-              AppButton(
-                text: isChecking ? 'Checking...' : 'Try Again',
-                width: isTablet ? 220 : 180.w,
-                height: isTablet ? 48 : 44.h,
-                borderRadius: AppRadius.sm,
-                onPressed: isChecking ? null : onRetry,
-                icon: isChecking
-                    ? SizedBox(
-                        width: 16.w,
-                        height: 16.w,
+                child: isChecking
+                    ? Padding(
+                        padding: EdgeInsets.all(8.w),
                         child: const CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.textPrimary,
+                          color: AppColors.primary,
                         ),
                       )
                     : const Icon(
-                        Icons.refresh_rounded,
-                        color: AppColors.textPrimary,
+                        Icons.wifi_off_rounded,
+                        color: AppColors.primary,
+                        size: 18,
                       ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isChecking
+                          ? 'Checking connection...'
+                          : 'Connection is unstable',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13.sp,
+                        height: 1.12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'Showing saved data when available.',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11.sp,
+                        height: 1.15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8.w),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Retry connection',
+                onPressed: isChecking ? null : onRetry,
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: isChecking
+                      ? AppColors.textSecondary
+                      : AppColors.textPrimary,
+                  size: 21.sp,
+                ),
               ),
             ],
           ),
