@@ -17,6 +17,9 @@ class AboutAfricanMoviesScreen extends StatelessWidget {
   static final _termsUrl = Uri.parse(
     'https://www.sangaentertainment.com/terms-and-conditions/',
   );
+  static final _flaticonUrl = Uri.parse(
+    'https://www.sangaentertainment.com/credits/flaticon',
+  );
 
   Future<void> _openUrl(BuildContext context, Uri url) async {
     final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -130,6 +133,41 @@ class AboutAfricanMoviesScreen extends StatelessWidget {
                       SizedBox(height: 18.h),
 
                       Container(
+                        padding: EdgeInsets.all(20.w),
+                        decoration: BoxDecoration(
+                          color: AppColors.card.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _SectionHeader(
+                              icon: Icons.volunteer_activism_outlined,
+                              title: 'Credits / Acknowledgements',
+                              description:
+                                  'AfricanMovies uses selected third-party assets and open-source tools under their respective licenses.',
+                            ),
+                            const _Divider(),
+                            _CreditTile(
+                              title: 'Flaticon',
+                              description:
+                                  'Selected icons are provided by Flaticon and their respective authors.',
+                              onTap: () => _openUrl(context, _flaticonUrl),
+                            ),
+                            const _Divider(),
+                            const _CreditTile(
+                              title: 'Open-source libraries',
+                              description:
+                                  'AfricanMovies is built with Flutter and open-source packages used under their respective licenses.',
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 18.h),
+
+                      Container(
                         decoration: BoxDecoration(
                           color: AppColors.card.withValues(alpha: 0.65),
                           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -192,6 +230,125 @@ class AboutAfricanMoviesScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.heroButton, size: 30.sp),
+        SizedBox(width: 16.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17.sp,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                description,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13.sp,
+                  height: 1.45,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CreditTile extends StatelessWidget {
+  const _CreditTile({
+    required this.title,
+    required this.description,
+    this.onTap,
+  });
+
+  final String title;
+  final String description;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 2.h),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 8.w,
+              height: 8.w,
+              margin: EdgeInsets.only(top: 7.h),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.heroButton,
+              ),
+            ),
+            SizedBox(width: 14.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 5.h),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13.sp,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onTap != null) ...[
+              SizedBox(width: 10.w),
+              Icon(
+                Icons.open_in_new_rounded,
+                color: AppColors.textSecondary,
+                size: 16.sp,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

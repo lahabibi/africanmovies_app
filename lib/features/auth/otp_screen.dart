@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/providers/app_providers.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/widgets/app_button.dart';
@@ -96,6 +97,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     }
 
     if (_remaining == Duration.zero) {
+      _clearOtpInput();
       _showMessage('This code has expired. Request a new one.');
       return;
     }
@@ -125,6 +127,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
+      if (_shouldClearOtpAfterFailure(error)) {
+        _clearOtpInput();
+      }
       _showMessage(error.toString());
     } finally {
       if (mounted) {
@@ -155,6 +160,20 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         setState(() => _isResending = false);
       }
     }
+  }
+
+  void _clearOtpInput() {
+    _otpController.clear();
+    _otpFocusNode.requestFocus();
+    if (mounted) setState(() {});
+  }
+
+  bool _shouldClearOtpAfterFailure(Object error) {
+    if (error is! ApiException) return false;
+
+    final normalizedMessage = error.message.toLowerCase();
+    return normalizedMessage.contains('invalid') ||
+        normalizedMessage.contains('expired');
   }
 
   void _resetTimers() {

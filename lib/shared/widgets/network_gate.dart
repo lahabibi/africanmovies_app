@@ -106,30 +106,31 @@ class _NetworkGateState extends ConsumerState<NetworkGate> {
       fit: StackFit.expand,
       children: [
         widget.child,
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            ignoring: !_showConnectionBanner,
-            child: AnimatedSlide(
-              offset: _showConnectionBanner ? Offset.zero : const Offset(0, -1),
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              child: AnimatedOpacity(
-                opacity: _showConnectionBanner ? 1 : 0,
-                duration: const Duration(milliseconds: 180),
-                child: SafeArea(
-                  bottom: false,
-                  child: _ConnectionBanner(
-                    isChecking: networkState.isLoading,
-                    onRetry: () => ref.invalidate(networkStatusProvider),
+        if (_showConnectionBanner)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: false,
+              child: AnimatedSlide(
+                offset: Offset.zero,
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  opacity: 1,
+                  duration: const Duration(milliseconds: 180),
+                  child: SafeArea(
+                    bottom: false,
+                    child: _ConnectionBanner(
+                      isChecking: networkState.isLoading,
+                      onRetry: () => ref.invalidate(networkStatusProvider),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -223,7 +224,6 @@ class _ConnectionBanner extends StatelessWidget {
               SizedBox(width: 8.w),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                tooltip: 'Retry connection',
                 onPressed: isChecking ? null : onRetry,
                 icon: Icon(
                   Icons.refresh_rounded,

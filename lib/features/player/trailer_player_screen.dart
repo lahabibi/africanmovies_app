@@ -300,11 +300,20 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     }
 
     await _player.seek(targetPosition);
+    _requestProgressSave(targetPosition, force: true);
   }
 
   Future<void> _seekTo(double milliseconds) async {
     _showControls();
     await _player.seek(Duration(milliseconds: milliseconds.round()));
+  }
+
+  Future<void> _commitSeek(double milliseconds) async {
+    _showControls();
+
+    final targetPosition = Duration(milliseconds: milliseconds.round());
+    await _player.seek(targetPosition);
+    _requestProgressSave(targetPosition, force: true);
   }
 
   Future<void> _setVolume(double volume) async {
@@ -593,12 +602,12 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
     });
   }
 
-  void _requestProgressSave(Duration position) {
+  void _requestProgressSave(Duration position, {bool force = false}) {
     if (_playbackCompleted) return;
 
-    final progress = _normalizedProgressForSave(position);
+    final progress = _normalizedProgressForSave(position, force: force);
     if (progress == null) return;
-    if (!_shouldSaveProgress(progress)) return;
+    if (!force && !_shouldSaveProgress(progress)) return;
 
     _queueProgressSave(progress);
   }
@@ -806,6 +815,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen>
                       onSkipBackward: _skipBackward10,
                       onSkipForward: _skipForward10,
                       onSeek: _seekTo,
+                      onSeekEnd: _commitSeek,
                       onVolumeChanged: _setVolume,
                       onMuteTap: _toggleMute,
                       onOrientationToggle: _toggleOrientation,
@@ -835,6 +845,7 @@ class _TrailerControlsOverlay extends StatelessWidget {
   final VoidCallback onSkipBackward;
   final VoidCallback onSkipForward;
   final ValueChanged<double> onSeek;
+  final ValueChanged<double> onSeekEnd;
   final ValueChanged<double> onVolumeChanged;
   final VoidCallback onMuteTap;
   final VoidCallback onOrientationToggle;
@@ -853,6 +864,7 @@ class _TrailerControlsOverlay extends StatelessWidget {
     required this.onSkipBackward,
     required this.onSkipForward,
     required this.onSeek,
+    required this.onSeekEnd,
     required this.onVolumeChanged,
     required this.onMuteTap,
     required this.onOrientationToggle,
@@ -917,6 +929,7 @@ class _TrailerControlsOverlay extends StatelessWidget {
                   player: player,
                   metrics: metrics,
                   onSeek: onSeek,
+                  onSeekEnd: onSeekEnd,
                 ),
               ],
             ),
@@ -1282,11 +1295,13 @@ class _ProgressControls extends StatelessWidget {
   final Player player;
   final _PlayerControlMetrics metrics;
   final ValueChanged<double> onSeek;
+  final ValueChanged<double> onSeekEnd;
 
   const _ProgressControls({
     required this.player,
     required this.metrics,
     required this.onSeek,
+    required this.onSeekEnd,
   });
 
   @override
@@ -1329,6 +1344,9 @@ class _ProgressControls extends StatelessWidget {
                     max: max,
                     value: value,
                     onChanged: duration.inMilliseconds <= 0 ? null : onSeek,
+                    onChangeEnd: duration.inMilliseconds <= 0
+                        ? null
+                        : onSeekEnd,
                   ),
                 ),
                 Padding(

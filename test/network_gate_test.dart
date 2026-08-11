@@ -9,7 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('network gate blocks and restores app content', (tester) async {
+  testWidgets('network gate warns without hiding app content', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.resetPhysicalSize);
@@ -40,16 +40,16 @@ void main() {
 
     statusController.add(NetworkStatus.offline);
     await tester.pump();
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 6));
 
-    expect(find.text('No internet connection'), findsOneWidget);
-    expect(find.text('Online content'), findsNothing);
+    expect(find.text('Connection is unstable'), findsOneWidget);
+    expect(find.text('Online content'), findsOneWidget);
 
     statusController.add(NetworkStatus.online);
     await tester.pump();
     await tester.pump();
 
     expect(find.text('Online content'), findsOneWidget);
-    expect(find.text('No internet connection'), findsNothing);
+    expect(find.text('Connection is unstable'), findsNothing);
   });
 }
