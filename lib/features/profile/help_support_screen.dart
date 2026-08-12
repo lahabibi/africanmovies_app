@@ -14,6 +14,7 @@ class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
 
   static const _supportEmail = 'info@africanmovies.com';
+  static const _supportEmailBody = 'Hello AfricanMovies support';
 
   static const _supportTopics = [
     _SupportTopic(
@@ -64,14 +65,7 @@ class HelpSupportScreen extends StatelessWidget {
     final emailUri = Uri(
       scheme: 'mailto',
       path: _supportEmail,
-      queryParameters: {
-        'subject': 'AfricanMovies Support Request',
-        'body':
-            'Hello AfricanMovies Support,\n\n'
-            'Account email:\n'
-            'Movie title, if any:\n'
-            'Issue:\n\n',
-      },
+      query: 'body=${Uri.encodeComponent(_supportEmailBody)}',
     );
 
     try {
