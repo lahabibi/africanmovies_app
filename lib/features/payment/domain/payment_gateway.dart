@@ -42,6 +42,18 @@ class NativePurchaseVerificationData {
     this.transactionDate,
   });
 
+  factory NativePurchaseVerificationData.fromJson(Map<String, dynamic> json) {
+    return NativePurchaseVerificationData(
+      completionKey: json['completionKey']?.toString() ?? '',
+      productId: json['productId']?.toString() ?? '',
+      purchaseId: json['purchaseId']?.toString(),
+      transactionDate: json['transactionDate']?.toString(),
+      source: json['source']?.toString() ?? '',
+      localVerificationData: json['localVerificationData']?.toString() ?? '',
+      serverVerificationData: json['serverVerificationData']?.toString() ?? '',
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'completionKey': completionKey,

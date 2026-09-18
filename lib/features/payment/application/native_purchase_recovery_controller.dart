@@ -11,6 +11,11 @@ import '../domain/payment_gateway.dart';
 import '../domain/pending_native_purchase.dart';
 import 'payment_providers.dart';
 
+const bool _nativeRecoveryDiagnosticsEnabled = bool.fromEnvironment(
+  'AM_NATIVE_RECOVERY_DIAGNOSTICS',
+  defaultValue: false,
+);
+
 final nativePurchaseRecoveryControllerProvider =
     AsyncNotifierProvider<
       NativePurchaseRecoveryController,
@@ -56,13 +61,17 @@ class NativePurchaseRecoveryController
 
     final session = await ref.watch(authControllerProvider.future);
     _userId = session?.user.id;
-    if (_userId == null || defaultTargetPlatform != TargetPlatform.android) {
+    if (_userId == null || !_supportsNativeRecovery) {
+      _log('build skipped user=${_tail(_userId)} platform=$_nativePlatform');
       return null;
     }
 
+    _log('build active user=${_tail(_userId)} platform=$_nativePlatform');
     _subscription = InAppPurchase.instance.purchaseStream.listen(
       (purchases) => unawaited(_handlePurchases(purchases)),
-      onError: (Object _) {},
+      onError: (Object error, StackTrace stackTrace) {
+        _log('purchaseStream error ${error.runtimeType}: $error');
+      },
     );
     ref.onDispose(() {
       _recoveryRetryTimer?.cancel();
@@ -75,9 +84,7 @@ class NativePurchaseRecoveryController
 
   Future<void> recoverOutstandingPurchases() async {
     final userId = _userId;
-    if (userId == null ||
-        defaultTargetPlatform != TargetPlatform.android ||
-        _isRecoveryRunning) {
+    if (userId == null || !_supportsNativeRecovery || _isRecoveryRunning) {
       return;
     }
 
@@ -87,8 +94,52 @@ class NativePurchaseRecoveryController
     try {
       final store = ref.read(pendingNativePurchaseStoreProvider);
       final attempts = await store.readAll(userId);
+      _log('recoverOutstandingPurchases attempts=${attempts.length}');
       for (final attempt in attempts) {
+        if (attempt.platform == 'ios') {
+          final verificationData = attempt.verificationData;
+          if (verificationData == null ||
+              verificationData.serverVerificationData.isEmpty) {
+            shouldRetry = true;
+            _log(
+              'ios attempt has no saved verification data '
+              'txRef=${_tail(attempt.txRef)}',
+            );
+            _showAwaitingConfirmationNotice(attempt);
+            continue;
+          }
+
+          try {
+            _log(
+              'recovering ios attempt with saved verification data '
+              'txRef=${_tail(attempt.txRef)} '
+              'purchaseId=${_tail(verificationData.purchaseId)}',
+            );
+            final result = await ref
+                .read(paymentRepositoryProvider)
+                .recoverNativePurchase(
+                  attempt: attempt,
+                  verificationData: verificationData,
+                );
+            shouldRetry = shouldRetry || result.isPending;
+            await _handleRecoveryResult(
+              result: result,
+              attempt: attempt,
+              purchase: null,
+            );
+          } catch (error) {
+            shouldRetry = true;
+            _log(
+              'ios saved verification recovery failed '
+              '${error.runtimeType}: $error',
+            );
+            _showAwaitingConfirmationNotice(attempt);
+          }
+          continue;
+        }
+
         try {
+          _log('recovering android attempt txRef=${_tail(attempt.txRef)}');
           final result = await ref
               .read(paymentRepositoryProvider)
               .recoverNativePurchase(attempt: attempt);
@@ -98,18 +149,25 @@ class NativePurchaseRecoveryController
             attempt: attempt,
             purchase: null,
           );
-        } catch (_) {
+        } catch (error) {
+          _log('android recovery failed ${error.runtimeType}: $error');
           shouldRetry = true;
           _showAwaitingConfirmationNotice(attempt);
         }
       }
 
-      try {
-        await InAppPurchase.instance.restorePurchases(
-          applicationUserName: userId,
-        );
-      } catch (_) {
-        shouldRetry = shouldRetry || attempts.isNotEmpty;
+      if (attempts.isNotEmpty &&
+          (defaultTargetPlatform == TargetPlatform.android ||
+              defaultTargetPlatform == TargetPlatform.iOS)) {
+        try {
+          _log('requesting store restore/redelivery');
+          await InAppPurchase.instance.restorePurchases(
+            applicationUserName: userId,
+          );
+        } catch (error) {
+          _log('store restore/redelivery failed ${error.runtimeType}: $error');
+          shouldRetry = shouldRetry || attempts.isNotEmpty;
+        }
       }
     } finally {
       _isRecoveryRunning = false;
@@ -125,7 +183,9 @@ class NativePurchaseRecoveryController
     final userId = _userId;
     if (userId == null) return;
 
+    _log('purchaseStream update count=${purchases.length}');
     for (final purchase in purchases) {
+      _log('purchase update ${_purchaseSummary(purchase)}');
       final token = purchase.verificationData.serverVerificationData.trim();
       if (purchase.productID.isEmpty || token.isEmpty) continue;
       if (!_processingTokens.add(token)) continue;
@@ -138,11 +198,40 @@ class NativePurchaseRecoveryController
         attempt = attempts
             .where((item) => item.productId == purchase.productID)
             .firstOrNull;
+
+        if (purchase.status == PurchaseStatus.pending) {
+          if (attempt != null) _showAwaitingConfirmationNotice(attempt);
+          _scheduleRecoveryRetry();
+          continue;
+        }
+
+        if (purchase.status == PurchaseStatus.canceled ||
+            purchase.status == PurchaseStatus.error) {
+          final failedResult = PaymentConfirmation(
+            status: 'failed',
+            alreadyProcessed: false,
+            txRef: attempt?.txRef,
+            transactionId: purchase.purchaseID,
+          );
+          await _handleRecoveryResult(
+            result: failedResult,
+            attempt: attempt,
+            purchase: purchase,
+          );
+          continue;
+        }
+
+        final verificationData = _verificationDataFor(purchase);
+        if (attempt != null) {
+          await ref
+              .read(pendingNativePurchaseStoreProvider)
+              .upsert(attempt.copyWith(verificationData: verificationData));
+        }
         final result = await ref
             .read(paymentRepositoryProvider)
             .recoverNativePurchase(
               attempt: attempt,
-              verificationData: _verificationDataFor(purchase),
+              verificationData: verificationData,
             );
         await _handleRecoveryResult(
           result: result,
@@ -150,7 +239,8 @@ class NativePurchaseRecoveryController
           purchase: purchase,
         );
         if (result.isPending) _scheduleRecoveryRetry();
-      } catch (_) {
+      } catch (error) {
+        _log('purchase recovery failed ${error.runtimeType}: $error');
         if (attempt != null) _showAwaitingConfirmationNotice(attempt);
         _scheduleRecoveryRetry();
       } finally {
@@ -181,7 +271,11 @@ class NativePurchaseRecoveryController
     }
 
     if (result.isPending) {
-      if (attempt == null &&
+      if (attempt != null && purchase != null) {
+        await store.upsert(
+          attempt.copyWith(verificationData: _verificationDataFor(purchase)),
+        );
+      } else if (attempt == null &&
           result.txRef?.isNotEmpty == true &&
           result.movieId?.isNotEmpty == true &&
           purchase != null) {
@@ -191,7 +285,7 @@ class NativePurchaseRecoveryController
             txRef: result.txRef!,
             movieId: result.movieId!,
             productId: purchase.productID,
-            platform: 'android',
+            platform: _nativePlatform ?? 'android',
             createdAt: DateTime.now(),
           ),
         );
@@ -238,9 +332,15 @@ class NativePurchaseRecoveryController
 
     final transactionKey =
         result.transactionId ?? txRef ?? purchase?.purchaseID ?? '';
-    final checkoutIsActive = ref
-        .read(purchaseControllerProvider.notifier)
-        .isPurchaseInProgress;
+    final purchaseController = ref.read(purchaseControllerProvider.notifier);
+    final checkoutIsActive = purchaseController.isPurchaseInProgress;
+    if (checkoutIsActive) {
+      purchaseController.completeRecoveredNativePurchase(
+        txRef: txRef,
+        transactionId: result.transactionId ?? purchase?.purchaseID,
+        paymentType: result.paymentType,
+      );
+    }
     if (transactionKey.isNotEmpty &&
         !checkoutIsActive &&
         _notifiedTransactions.add(transactionKey)) {
@@ -302,6 +402,7 @@ class NativePurchaseRecoveryController
         ? _recoveryRetryAttempt
         : _recoveryRetryDelays.length - 1;
     final delay = _recoveryRetryDelays[delayIndex];
+    _log('scheduling recovery retry in ${delay.inSeconds}s');
     _recoveryRetryAttempt++;
     _recoveryRetryTimer = Timer(delay, () {
       _recoveryRetryTimer = null;
@@ -357,5 +458,40 @@ class NativePurchaseRecoveryController
     final age = DateTime.now().difference(attempt.createdAt);
 
     return age >= Duration.zero && age < _freshCheckoutNoticeGracePeriod;
+  }
+
+  bool get _supportsNativeRecovery {
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  String? get _nativePlatform {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'android',
+      TargetPlatform.iOS => 'ios',
+      _ => null,
+    };
+  }
+
+  void _log(String message) {
+    if (!_nativeRecoveryDiagnosticsEnabled) return;
+    debugPrint('[NativeRecovery] $message');
+  }
+
+  String _purchaseSummary(PurchaseDetails purchase) {
+    final verificationData = purchase.verificationData;
+    return 'product=${purchase.productID} status=${purchase.status.name} '
+        'pendingComplete=${purchase.pendingCompletePurchase} '
+        'purchaseId=${_tail(purchase.purchaseID)} '
+        'source=${verificationData.source} '
+        'serverDataLength=${verificationData.serverVerificationData.length} '
+        'error=${purchase.error?.code}:${purchase.error?.message}';
+  }
+
+  String _tail(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'empty';
+    if (text.length <= 8) return text;
+    return '...${text.substring(text.length - 8)}';
   }
 }

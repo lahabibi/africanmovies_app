@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,6 +18,11 @@ import '../domain/payment_confirmation.dart';
 import '../domain/payment_intent.dart';
 import '../domain/pending_native_purchase.dart';
 import '../domain/purchase_result.dart';
+
+const bool _paymentDiagnosticsEnabled = bool.fromEnvironment(
+  'AM_PAYMENT_DIAGNOSTICS',
+  defaultValue: false,
+);
 
 final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
   return PaymentRepository(apiClient: ref.watch(apiClientProvider));
@@ -45,7 +52,11 @@ final paymentHistoryProvider = FutureProvider<PaymentHistoryResponse>((ref) {
 });
 
 class PurchaseController extends AsyncNotifier<PurchaseResult?> {
+  static const _nativeVerificationTimeout = Duration(seconds: 25);
+
   bool _isPurchaseInProgress = false;
+  final Set<String> _completedNativePurchaseKeys = {};
+  PurchaseResult? _lastCompletedNativePurchase;
 
   bool get isPurchaseInProgress => _isPurchaseInProgress;
 
@@ -58,15 +69,22 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     required BuildContext context,
     required Movie movie,
   }) async {
+    _paymentLog(
+      'purchaseMovie started movieId=${_tail(movie.id)} '
+      'price=${movie.price}',
+    );
     if (_isPurchaseInProgress) {
+      _paymentLog('purchaseMovie rejected: another purchase is in progress');
       return PurchaseResult.failed('Payment is already in progress.');
     }
 
     _isPurchaseInProgress = true;
     state = const AsyncLoading();
+    PaymentIntent? activeIntent;
 
     try {
       if (movie.price <= 0) {
+        _paymentLog('purchaseMovie rejected: movie is free');
         final result = PurchaseResult.failed(
           'This movie is free. Playback will open from Watch Now.',
         );
@@ -77,8 +95,16 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       final intent = await ref
           .read(paymentRepositoryProvider)
           .initializeMoviePurchase(movie.id);
+      activeIntent = intent;
+      _paymentLog(
+        'initialize result method=${intent.method.name} '
+        'status=${intent.status.name} productId=${intent.storeProductId} '
+        'txRef=${_tail(intent.txRef)} reused=${intent.reused} '
+        'awaiting=${intent.awaitingStoreConfirmation}',
+      );
 
       if (intent.isAlreadyPurchased) {
+        _paymentLog('purchaseMovie already purchased');
         final result = PurchaseResult.alreadyPurchased();
         await _refreshHomeData();
         state = AsyncData(result);
@@ -86,6 +112,9 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       }
 
       if (!_isNativePaymentMethod(intent.method)) {
+        _paymentLog(
+          'purchaseMovie rejected: non-native method ${intent.method.name}',
+        );
         final result = PurchaseResult.failed(
           'Mobile purchases must use Apple or Google Play billing.',
         );
@@ -97,8 +126,13 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         movie: movie,
         intent: intent,
       );
+      _paymentLog(
+        'pending native attempt saved=${pendingAttempt != null} '
+        'txRef=${_tail(pendingAttempt?.txRef)}',
+      );
 
       if (intent.awaitingStoreConfirmation && pendingAttempt != null) {
+        _paymentLog('recovering existing native attempt');
         return _recoverExistingNativeAttempt(
           movie: movie,
           attempt: pendingAttempt,
@@ -106,6 +140,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       }
 
       if (!context.mounted) {
+        _paymentLog('purchaseMovie cancelled: context unmounted');
         await _closeNativePurchaseAttempt(
           intent: intent,
           providerStatus: 'cancelled',
@@ -119,8 +154,27 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         context: context,
         intent: intent,
       );
+      _paymentLog(
+        'gateway result status=${gatewayResult.status.name} '
+        'txRef=${_tail(gatewayResult.txRef)} '
+        'transactionId=${_tail(gatewayResult.transactionId)} '
+        'message=${gatewayResult.message}',
+      );
+      final recoveredResult = _completedNativePurchaseResultFor(
+        txRef: intent.txRef,
+        transactionId: gatewayResult.transactionId,
+        verificationData: gatewayResult.nativeVerificationData,
+      );
+      if (recoveredResult != null) {
+        _paymentLog(
+          'gateway result ignored; native purchase already recovered',
+        );
+        state = AsyncData(recoveredResult);
+        return recoveredResult;
+      }
 
       if (gatewayResult.status == GatewayPaymentStatus.cancelled) {
+        _paymentLog('gateway cancelled by user/store');
         await _closeNativePurchaseAttempt(
           intent: intent,
           providerStatus: 'cancelled',
@@ -131,6 +185,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       }
 
       if (gatewayResult.isPending) {
+        _paymentLog('gateway returned pending');
         return _handlePendingNativePurchase(
           intent: intent,
           attempt: pendingAttempt,
@@ -139,6 +194,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       }
 
       if (!gatewayResult.isCompleted) {
+        _paymentLog('gateway failed; closing native attempt');
         await _closeNativePurchaseAttempt(
           intent: intent,
           providerStatus: 'failed',
@@ -152,6 +208,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
 
       final transactionId = gatewayResult.transactionId;
       if (transactionId == null || transactionId.isEmpty) {
+        _paymentLog('gateway completed without transaction id');
         final result = PurchaseResult.failed(
           'Payment verification details were missing. Please try again.',
         );
@@ -162,9 +219,21 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       return _confirmNativePurchase(
         movie: movie,
         intent: intent,
+        attempt: pendingAttempt,
         gatewayResult: gatewayResult,
       );
     } catch (error) {
+      _paymentLog('purchaseMovie error ${error.runtimeType}: $error');
+      final recoveredResult = _completedNativePurchaseResultFor(
+        txRef: activeIntent?.txRef,
+      );
+      if (recoveredResult != null) {
+        _paymentLog(
+          'purchase error ignored; native purchase already recovered',
+        );
+        state = AsyncData(recoveredResult);
+        return recoveredResult;
+      }
       final result = PurchaseResult.failed(_messageFor(error));
       state = AsyncData(result);
       return result;
@@ -201,6 +270,25 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
         method == PaymentMethod.googlePlay;
   }
 
+  void completeRecoveredNativePurchase({
+    String? txRef,
+    String? transactionId,
+    String? paymentType,
+  }) {
+    final result = _nativeRecoverySuccessResult(
+      txRef: txRef,
+      transactionId: transactionId,
+      paymentType: paymentType,
+    );
+    _rememberCompletedNativePurchase(
+      txRef: result.txRef,
+      transactionId: result.transactionId,
+      paymentType: result.paymentType,
+    );
+    _isPurchaseInProgress = false;
+    state = AsyncData(result);
+  }
+
   Future<PendingNativePurchase?> _savePendingNativeAttempt({
     required Movie movie,
     required PaymentIntent intent,
@@ -229,11 +317,21 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     required Movie movie,
     required PendingNativePurchase attempt,
   }) async {
+    final verificationData = attempt.verificationData;
+    if (attempt.platform == 'ios' && verificationData == null) {
+      final result = PurchaseResult.pending(txRef: attempt.txRef);
+      state = AsyncData(result);
+      return result;
+    }
+
     late final PaymentConfirmation confirmation;
     try {
       confirmation = await ref
           .read(paymentRepositoryProvider)
-          .recoverNativePurchase(attempt: attempt);
+          .recoverNativePurchase(
+            attempt: attempt,
+            verificationData: verificationData,
+          );
     } catch (_) {
       final result = PurchaseResult.pending(txRef: attempt.txRef);
       state = AsyncData(result);
@@ -271,9 +369,24 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     required PendingNativePurchase? attempt,
     required NativePurchaseVerificationData? verificationData,
   }) async {
+    final recoveredResult = _completedNativePurchaseResultFor(
+      txRef: intent.txRef,
+      transactionId: verificationData?.purchaseId,
+      verificationData: verificationData,
+    );
+    if (recoveredResult != null) {
+      state = AsyncData(recoveredResult);
+      return recoveredResult;
+    }
+
     if (attempt != null &&
         verificationData != null &&
         verificationData.serverVerificationData.isNotEmpty) {
+      await _persistPendingNativeVerificationData(
+        attempt: attempt,
+        verificationData: verificationData,
+      );
+
       PaymentConfirmation? confirmation;
       try {
         confirmation = await ref
@@ -345,6 +458,10 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     if (!_isNativePaymentMethod(intent.method)) return;
 
     try {
+      _paymentLog(
+        'closing native attempt txRef=${_tail(intent.txRef)} '
+        'status=$providerStatus',
+      );
       await ref
           .read(paymentRepositoryProvider)
           .closeNativePurchaseAttempt(
@@ -352,6 +469,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
             providerStatus: providerStatus,
           );
     } catch (_) {
+      _paymentLog('close native attempt failed');
       // Cleanup is best-effort and must not replace the store result shown.
     } finally {
       await _removePendingNativeAttemptForIntent(intent);
@@ -368,10 +486,12 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
   Future<PurchaseResult> _confirmNativePurchase({
     required Movie movie,
     required PaymentIntent intent,
+    required PendingNativePurchase? attempt,
     required GatewayPaymentResult gatewayResult,
   }) async {
     final verificationData = gatewayResult.nativeVerificationData;
     if (verificationData == null) {
+      _paymentLog('confirmNativePurchase failed: missing verification data');
       final result = PurchaseResult.failed(
         'Store verification details were missing. Please try again.',
       );
@@ -379,15 +499,91 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
       return result;
     }
 
-    final confirmation = await ref
-        .read(paymentRepositoryProvider)
-        .verifyNativePurchase(
-          movieId: movie.id,
-          intent: intent,
+    final recoveredBeforeVerification = _completedNativePurchaseResultFor(
+      txRef: intent.txRef,
+      transactionId: gatewayResult.transactionId,
+      verificationData: verificationData,
+    );
+    if (recoveredBeforeVerification != null) {
+      state = AsyncData(recoveredBeforeVerification);
+      return recoveredBeforeVerification;
+    }
+
+    _paymentLog(
+      'verifying native purchase productId=${verificationData.productId} '
+      'purchaseId=${_tail(verificationData.purchaseId)} '
+      'completionKey=${_tail(verificationData.completionKey)} '
+      'source=${verificationData.source} '
+      'serverDataLength=${verificationData.serverVerificationData.length}',
+    );
+    final PaymentConfirmation confirmation;
+    try {
+      confirmation = await ref
+          .read(paymentRepositoryProvider)
+          .verifyNativePurchase(
+            movieId: movie.id,
+            intent: intent,
+            verificationData: verificationData,
+          )
+          .timeout(_nativeVerificationTimeout);
+    } on TimeoutException {
+      _paymentLog(
+        'verifyNativePurchase timed out after '
+        '${_nativeVerificationTimeout.inSeconds}s',
+      );
+      await _persistPendingNativeVerificationData(
+        attempt: attempt,
+        verificationData: verificationData,
+      );
+      final recoveredResult = _completedNativePurchaseResultFor(
+        txRef: intent.txRef,
+        transactionId: gatewayResult.transactionId,
+        verificationData: verificationData,
+      );
+      if (recoveredResult != null) {
+        state = AsyncData(recoveredResult);
+        return recoveredResult;
+      }
+      final result = PurchaseResult.pending(txRef: intent.txRef);
+      state = AsyncData(result);
+      return result;
+    } on ApiException catch (error) {
+      _paymentLog(
+        'verifyNativePurchase api error status=${error.statusCode} '
+        'message=${error.message}',
+      );
+      if (_isTemporaryNativeVerificationFailure(error)) {
+        await _persistPendingNativeVerificationData(
+          attempt: attempt,
           verificationData: verificationData,
         );
+        final recoveredResult = _completedNativePurchaseResultFor(
+          txRef: intent.txRef,
+          transactionId: gatewayResult.transactionId,
+          verificationData: verificationData,
+        );
+        if (recoveredResult != null) {
+          state = AsyncData(recoveredResult);
+          return recoveredResult;
+        }
+        final result = PurchaseResult.pending(txRef: intent.txRef);
+        state = AsyncData(result);
+        return result;
+      }
+
+      rethrow;
+    }
+    _paymentLog(
+      'verifyNativePurchase result success=${confirmation.isSuccessful} '
+      'pending=${confirmation.isPending} '
+      'transactionId=${_tail(confirmation.transactionId)}',
+    );
 
     if (confirmation.isPending) {
+      await _persistPendingNativeVerificationData(
+        attempt: attempt,
+        verificationData: verificationData,
+      );
       final result = PurchaseResult.pending(txRef: intent.txRef);
       state = AsyncData(result);
       return result;
@@ -406,6 +602,7 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
           .read(nativeStorePaymentGatewayProvider)
           .completePurchase(verificationData.completionKey);
     } catch (_) {
+      _paymentLog('completePurchase failed after backend success');
       // Access is already granted by the backend. StoreKit will redeliver the
       // transaction later if completion fails, so do not show a false failure.
     }
@@ -419,6 +616,13 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
           gatewayResult.transactionId ?? verificationData.completionKey,
       paymentType: confirmation.paymentType,
     );
+    _rememberCompletedNativePurchase(
+      txRef: result.txRef,
+      transactionId: result.transactionId,
+      completionKey: verificationData.completionKey,
+      purchaseId: verificationData.purchaseId,
+      paymentType: result.paymentType,
+    );
     state = AsyncData(result);
     return result;
   }
@@ -428,9 +632,122 @@ class PurchaseController extends AsyncNotifier<PurchaseResult?> {
     await ref.read(homeDataProvider.future);
   }
 
+  Future<void> _persistPendingNativeVerificationData({
+    required PendingNativePurchase? attempt,
+    required NativePurchaseVerificationData verificationData,
+  }) async {
+    if (attempt == null || verificationData.serverVerificationData.isEmpty) {
+      return;
+    }
+
+    _paymentLog(
+      'persisting native verification data txRef=${_tail(attempt.txRef)} '
+      'purchaseId=${_tail(verificationData.purchaseId)}',
+    );
+    await ref
+        .read(pendingNativePurchaseStoreProvider)
+        .upsert(attempt.copyWith(verificationData: verificationData));
+  }
+
   String _messageFor(Object error) {
     if (error is ApiException) return error.message;
 
     return error.toString();
   }
+
+  bool _isTemporaryNativeVerificationFailure(ApiException error) {
+    final message = error.message.toLowerCase();
+    return error.statusCode == null ||
+        (error.statusCode != null && error.statusCode! >= 500) ||
+        message.contains('timed out') ||
+        message.contains('timeout') ||
+        message.contains('temporarily') ||
+        message.contains('connection');
+  }
+
+  void _rememberCompletedNativePurchase({
+    String? txRef,
+    String? transactionId,
+    String? completionKey,
+    String? purchaseId,
+    String? paymentType,
+  }) {
+    for (final key in [txRef, transactionId, completionKey, purchaseId]) {
+      final normalized = key?.trim();
+      if (normalized != null && normalized.isNotEmpty) {
+        _completedNativePurchaseKeys.add(normalized);
+      }
+    }
+
+    _lastCompletedNativePurchase = _nativeRecoverySuccessResult(
+      txRef: txRef,
+      transactionId: transactionId ?? purchaseId ?? completionKey,
+      paymentType: paymentType,
+    );
+  }
+
+  PurchaseResult? _completedNativePurchaseResultFor({
+    String? txRef,
+    String? transactionId,
+    NativePurchaseVerificationData? verificationData,
+  }) {
+    for (final key in [
+      txRef,
+      transactionId,
+      verificationData?.completionKey,
+      verificationData?.purchaseId,
+    ]) {
+      final normalized = key?.trim();
+      if (normalized != null &&
+          normalized.isNotEmpty &&
+          _completedNativePurchaseKeys.contains(normalized)) {
+        return _lastCompletedNativePurchase ??
+            _nativeRecoverySuccessResult(
+              txRef: txRef,
+              transactionId: transactionId,
+            );
+      }
+    }
+
+    return null;
+  }
+
+  PurchaseResult _nativeRecoverySuccessResult({
+    String? txRef,
+    String? transactionId,
+    String? paymentType,
+  }) {
+    final resolvedTxRef =
+        _firstNonEmpty([txRef, transactionId]) ??
+        'native-${DateTime.now().microsecondsSinceEpoch}';
+    final resolvedTransactionId =
+        _firstNonEmpty([transactionId, txRef]) ?? resolvedTxRef;
+
+    return PurchaseResult.success(
+      txRef: resolvedTxRef,
+      transactionId: resolvedTransactionId,
+      paymentType: paymentType,
+    );
+  }
+}
+
+void _paymentLog(String message) {
+  if (!_paymentDiagnosticsEnabled) return;
+  debugPrint('[PaymentFlow] $message');
+}
+
+String _tail(String? value) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) return 'empty';
+  if (text.length <= 8) return text;
+  return '...${text.substring(text.length - 8)}';
+}
+
+String? _firstNonEmpty(Iterable<String?> values) {
+  for (final value in values) {
+    final text = value?.trim();
+    if (text != null && text.isNotEmpty) return text;
+  }
+
+  return null;
 }

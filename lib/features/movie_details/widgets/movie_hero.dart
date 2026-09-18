@@ -28,6 +28,13 @@ class MovieHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = Responsive.horizontalPadding(context);
+    final isTablet = Responsive.isTablet(context);
+    final heroImageUrl = isTablet
+        ? movie.displayBannerUrl
+        : movie.displayPosterUrl;
+    final heroImageAlignment = isTablet
+        ? Alignment.center
+        : Alignment.topCenter;
     final metaItems = [
       movie.yearLabel,
       movie.genre,
@@ -41,7 +48,11 @@ class MovieHero extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: AppImage(source: movie.displayBannerUrl, fit: BoxFit.cover),
+            child: AppImage(
+              source: heroImageUrl,
+              fit: BoxFit.cover,
+              alignment: heroImageAlignment,
+            ),
           ),
 
           Positioned.fill(
@@ -78,7 +89,6 @@ class MovieHero extends StatelessWidget {
           //     onTap: () {},
           //   ),
           // ),
-
           Positioned(
             left: 0,
             right: 0,

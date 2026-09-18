@@ -569,7 +569,10 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     final accessState = _movieAccessState(homeDataState);
     final hasAccess = accessState != _MovieAccessState.paymentRequired;
     final purchaseState = ref.watch(purchaseControllerProvider);
-    final isPurchasing = purchaseState.isLoading || _isOpeningPlayer;
+    final isPurchasing =
+        (purchaseState.isLoading &&
+            accessState == _MovieAccessState.paymentRequired) ||
+        _isOpeningPlayer;
     final watchlistState = hasSession
         ? ref.watch(watchlistControllerProvider)
         : const AsyncData<List<Movie>>([]);

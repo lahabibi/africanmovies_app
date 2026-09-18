@@ -104,7 +104,10 @@ class PaymentRepository {
             'txRef': attempt.txRef,
             'movieId': attempt.movieId,
             'productId': attempt.productId,
+            'platform': attempt.platform,
           },
+          if (attempt == null && _nativePlatform != null)
+            'platform': _nativePlatform,
           if (verificationData != null) ...verificationData.toJson(),
         },
       );

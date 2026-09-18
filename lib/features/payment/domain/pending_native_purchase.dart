@@ -1,3 +1,5 @@
+import 'payment_gateway.dart';
+
 class PendingNativePurchase {
   final String userId;
   final String txRef;
@@ -5,6 +7,7 @@ class PendingNativePurchase {
   final String productId;
   final String platform;
   final DateTime createdAt;
+  final NativePurchaseVerificationData? verificationData;
 
   const PendingNativePurchase({
     required this.userId,
@@ -13,9 +16,12 @@ class PendingNativePurchase {
     required this.productId,
     required this.platform,
     required this.createdAt,
+    this.verificationData,
   });
 
   factory PendingNativePurchase.fromJson(Map<String, dynamic> json) {
+    final rawVerificationData = json['verificationData'];
+
     return PendingNativePurchase(
       userId: json['userId']?.toString() ?? '',
       txRef: json['txRef']?.toString() ?? '',
@@ -25,6 +31,31 @@ class PendingNativePurchase {
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.now(),
+      verificationData: rawVerificationData is Map
+          ? NativePurchaseVerificationData.fromJson(
+              Map<String, dynamic>.from(rawVerificationData),
+            )
+          : null,
+    );
+  }
+
+  PendingNativePurchase copyWith({
+    String? userId,
+    String? txRef,
+    String? movieId,
+    String? productId,
+    String? platform,
+    DateTime? createdAt,
+    NativePurchaseVerificationData? verificationData,
+  }) {
+    return PendingNativePurchase(
+      userId: userId ?? this.userId,
+      txRef: txRef ?? this.txRef,
+      movieId: movieId ?? this.movieId,
+      productId: productId ?? this.productId,
+      platform: platform ?? this.platform,
+      createdAt: createdAt ?? this.createdAt,
+      verificationData: verificationData ?? this.verificationData,
     );
   }
 
@@ -36,6 +67,8 @@ class PendingNativePurchase {
       'productId': productId,
       'platform': platform,
       'createdAt': createdAt.toIso8601String(),
+      if (verificationData != null)
+        'verificationData': verificationData!.toJson(),
     };
   }
 }

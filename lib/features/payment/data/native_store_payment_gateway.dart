@@ -7,7 +7,14 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import '../domain/payment_gateway.dart';
 import '../domain/payment_intent.dart';
 
+const bool _nativeStoreDiagnosticsEnabled = bool.fromEnvironment(
+  'AM_NATIVE_STORE_DIAGNOSTICS',
+  defaultValue: false,
+);
+
 class NativeStorePaymentGateway implements PaymentGateway {
+  static const _duplicatePurchaseStreamWait = Duration(seconds: 8);
+
   NativeStorePaymentGateway({
     InAppPurchase? inAppPurchase,
     Duration purchaseTimeout = const Duration(minutes: 3),
@@ -25,7 +32,12 @@ class NativeStorePaymentGateway implements PaymentGateway {
   }) async {
     final storeLabel = _storeLabelFor(intent.method);
     final productId = intent.storeProductId?.trim() ?? '';
+    _log(
+      'charge started store=$storeLabel productId=$productId '
+      'txRef=${_tail(intent.txRef)} account=${_tail(intent.storeAccountId)}',
+    );
     if (productId.isEmpty) {
+      _log('charge failed before store call: empty productId');
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -35,8 +47,10 @@ class NativeStorePaymentGateway implements PaymentGateway {
 
     final bool isAvailable;
     try {
+      _log('checking store availability');
       isAvailable = await _inAppPurchase.isAvailable();
     } on PlatformException catch (error) {
+      _logPlatformException('isAvailable failed', error);
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -44,6 +58,7 @@ class NativeStorePaymentGateway implements PaymentGateway {
       );
     }
 
+    _log('store availability result=$isAvailable');
     if (!isAvailable) {
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
@@ -54,8 +69,10 @@ class NativeStorePaymentGateway implements PaymentGateway {
 
     final ProductDetailsResponse productResponse;
     try {
+      _log('querying product details for $productId');
       productResponse = await _inAppPurchase.queryProductDetails({productId});
     } on PlatformException catch (error) {
+      _logPlatformException('queryProductDetails platform exception', error);
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -63,6 +80,12 @@ class NativeStorePaymentGateway implements PaymentGateway {
       );
     }
 
+    _log(
+      'queryProductDetails result products='
+      '${productResponse.productDetails.map((product) => product.id).join(',')} '
+      'notFound=${productResponse.notFoundIDs.join(',')} '
+      'error=${_iapErrorSummary(productResponse.error)}',
+    );
     final productError = productResponse.error;
     if (productError != null) {
       return GatewayPaymentResult(
@@ -83,6 +106,7 @@ class NativeStorePaymentGateway implements PaymentGateway {
     );
     if (productDetails == null ||
         productResponse.notFoundIDs.contains(productId)) {
+      _log('product not available after query productId=$productId');
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
         txRef: intent.txRef,
@@ -93,8 +117,10 @@ class NativeStorePaymentGateway implements PaymentGateway {
     final completer = Completer<GatewayPaymentResult>();
     late final StreamSubscription<List<PurchaseDetails>> subscription;
 
+    _log('listening for purchase updates');
     subscription = _inAppPurchase.purchaseStream.listen(
       (purchases) {
+        _log('purchaseStream update count=${purchases.length}');
         _handlePurchaseUpdates(
           purchases: purchases,
           productId: productId,
@@ -103,7 +129,8 @@ class NativeStorePaymentGateway implements PaymentGateway {
           completer: completer,
         );
       },
-      onError: (Object _) {
+      onError: (Object error, StackTrace stackTrace) {
+        _log('purchaseStream error ${error.runtimeType}: $error');
         if (completer.isCompleted) return;
         completer.complete(
           GatewayPaymentResult(
@@ -117,6 +144,9 @@ class NativeStorePaymentGateway implements PaymentGateway {
 
     final bool purchaseStarted;
     try {
+      _log(
+        'starting buyConsumable autoConsume=${intent.method != PaymentMethod.googlePlay}',
+      );
       purchaseStarted = await _inAppPurchase.buyConsumable(
         purchaseParam: PurchaseParam(
           productDetails: productDetails,
@@ -125,6 +155,31 @@ class NativeStorePaymentGateway implements PaymentGateway {
         autoConsume: intent.method != PaymentMethod.googlePlay,
       );
     } on PlatformException catch (error) {
+      _logPlatformException('buyConsumable failed', error);
+      if (_isDuplicatePendingProductError(error)) {
+        final streamedResult = await _streamedResultAfterDuplicate(completer);
+        if (streamedResult != null) {
+          await subscription.cancel();
+          _log(
+            'buyConsumable duplicate resolved from purchase stream '
+            'status=${streamedResult.status.name}',
+          );
+          return streamedResult;
+        }
+
+        await subscription.cancel();
+        _log(
+          'buyConsumable duplicate had no stream result after '
+          '${_duplicatePurchaseStreamWait.inSeconds}s; keeping attempt pending',
+        );
+        return GatewayPaymentResult(
+          status: GatewayPaymentStatus.pending,
+          txRef: intent.txRef,
+          message:
+              'Your purchase is awaiting App Store confirmation. We will update your library automatically.',
+        );
+      }
+
       await subscription.cancel();
       return GatewayPaymentResult(
         status: GatewayPaymentStatus.failed,
@@ -133,6 +188,7 @@ class NativeStorePaymentGateway implements PaymentGateway {
       );
     }
 
+    _log('buyConsumable returned purchaseStarted=$purchaseStarted');
     if (!purchaseStarted) {
       await subscription.cancel();
       return GatewayPaymentResult(
@@ -145,6 +201,7 @@ class NativeStorePaymentGateway implements PaymentGateway {
     final result = await completer.future.timeout(
       _purchaseTimeout,
       onTimeout: () {
+        _log('purchase timed out after ${_purchaseTimeout.inSeconds}s');
         return GatewayPaymentResult(
           status: GatewayPaymentStatus.pending,
           txRef: intent.txRef,
@@ -155,7 +212,20 @@ class NativeStorePaymentGateway implements PaymentGateway {
     );
 
     await subscription.cancel();
+    _log(
+      'charge finished status=${result.status.name} txRef=${_tail(result.txRef)}',
+    );
     return result;
+  }
+
+  Future<GatewayPaymentResult?> _streamedResultAfterDuplicate(
+    Completer<GatewayPaymentResult> completer,
+  ) {
+    if (completer.isCompleted) return completer.future;
+
+    return completer.future
+        .then<GatewayPaymentResult?>((result) => result)
+        .timeout(_duplicatePurchaseStreamWait, onTimeout: () => null);
   }
 
   @override
@@ -173,9 +243,19 @@ class NativeStorePaymentGateway implements PaymentGateway {
 
   Future<void> completePurchase(String completionKey) async {
     final purchase = _pendingCompletions.remove(completionKey);
-    if (purchase == null || !purchase.pendingCompletePurchase) return;
+    if (purchase == null) {
+      _log('completePurchase skipped: no pending purchase for $completionKey');
+      return;
+    }
 
+    if (!purchase.pendingCompletePurchase) {
+      _log('completePurchase skipped: store says completion is not pending');
+      return;
+    }
+
+    _log('completePurchase started ${_purchaseSummary(purchase)}');
     await _inAppPurchase.completePurchase(purchase);
+    _log('completePurchase finished completionKey=$completionKey');
   }
 
   ProductDetails? _findProductDetails(
@@ -199,12 +279,17 @@ class NativeStorePaymentGateway implements PaymentGateway {
     if (completer.isCompleted) return;
 
     for (final purchase in purchases) {
+      _log('purchase update ${_purchaseSummary(purchase)}');
       final isProductlessTerminalUpdate =
           purchase.productID.isEmpty &&
           (purchase.status == PurchaseStatus.canceled ||
               purchase.status == PurchaseStatus.error);
 
       if (purchase.productID != productId && !isProductlessTerminalUpdate) {
+        _log(
+          'ignoring purchase update for product=${purchase.productID}; '
+          'waiting for product=$productId',
+        );
         continue;
       }
 
@@ -301,6 +386,55 @@ class NativeStorePaymentGateway implements PaymentGateway {
     );
   }
 
+  void _log(String message) {
+    if (!_nativeStoreDiagnosticsEnabled) return;
+    debugPrint('[NativeStorePayment] $message');
+  }
+
+  void _logPlatformException(String label, PlatformException error) {
+    _log(
+      '$label code=${error.code} message=${error.message} '
+      'details=${error.details}',
+    );
+  }
+
+  String _iapErrorSummary(IAPError? error) {
+    if (error == null) return 'none';
+
+    return 'code=${error.code} message=${error.message} '
+        'details=${error.details}';
+  }
+
+  String _purchaseSummary(PurchaseDetails purchase) {
+    final verificationData = purchase.verificationData;
+    return 'product=${purchase.productID} status=${purchase.status.name} '
+        'pendingComplete=${purchase.pendingCompletePurchase} '
+        'purchaseId=${_tail(purchase.purchaseID)} '
+        'transactionDate=${purchase.transactionDate} '
+        'source=${verificationData.source} '
+        'serverDataLength=${verificationData.serverVerificationData.length} '
+        'error=${_iapErrorSummary(purchase.error)}';
+  }
+
+  String _tail(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'empty';
+    if (text.length <= 8) return text;
+    return '...${text.substring(text.length - 8)}';
+  }
+
+  bool _isDuplicatePendingProductError(PlatformException error) {
+    final diagnostic = [
+      error.code,
+      error.message,
+      error.details?.toString(),
+    ].whereType<String>().join(' ').toLowerCase();
+
+    return diagnostic.contains('duplicate') ||
+        diagnostic.contains('pending transaction') ||
+        diagnostic.contains('storekit_duplicate_product_object');
+  }
+
   String _friendlyStoreFailureMessage({
     required String storeLabel,
     String? code,
@@ -325,6 +459,12 @@ class NativeStorePaymentGateway implements PaymentGateway {
     if (diagnostic.contains('itemalreadyowned') ||
         diagnostic.contains('item already owned')) {
       return 'This purchase is already being processed. Please refresh your library and try again.';
+    }
+
+    if (diagnostic.contains('duplicate') ||
+        diagnostic.contains('pending transaction') ||
+        diagnostic.contains('storekit_duplicate_product_object')) {
+      return 'This purchase is still being finalized by the App Store. Please wait a moment and try again.';
     }
 
     if (duringCheckout &&
