@@ -2,6 +2,7 @@ class Movie {
   final String id;
   final String? movieSku;
   final MovieStoreProducts storeProducts;
+  final MoviePurchaseAvailability? purchaseAvailability;
   final String title;
   final String genre;
   final String? rating;
@@ -31,6 +32,7 @@ class Movie {
     required this.id,
     this.movieSku,
     this.storeProducts = const MovieStoreProducts(),
+    this.purchaseAvailability,
     required this.title,
     required this.genre,
     this.rating,
@@ -62,6 +64,9 @@ class Movie {
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
       movieSku: _readOptionalCleanString(json['movieSku']),
       storeProducts: MovieStoreProducts.fromJson(json['storeProducts']),
+      purchaseAvailability: MoviePurchaseAvailability.fromJson(
+        json['purchaseAvailability'],
+      ),
       title: json['title']?.toString() ?? 'Untitled',
       genre: json['genre']?.toString() ?? '',
       rating: json['rating']?.toString(),
@@ -145,6 +150,7 @@ class Movie {
       '_id': id,
       'movieSku': movieSku,
       'storeProducts': storeProducts.toJson(),
+      'purchaseAvailability': purchaseAvailability?.toJson(),
       'title': title,
       'genre': genre,
       'rating': rating,
@@ -197,6 +203,59 @@ class Movie {
   static List<String> _readStringList(Object? value) {
     if (value is! List) return const [];
     return value.map((item) => item.toString()).toList();
+  }
+}
+
+enum MoviePurchaseAvailabilityStatus { available, comingSoon, unavailable }
+
+class MoviePurchaseAvailability {
+  final String? platform;
+  final MoviePurchaseAvailabilityStatus status;
+  final bool canPurchase;
+  final String? reason;
+
+  const MoviePurchaseAvailability({
+    this.platform,
+    required this.status,
+    required this.canPurchase,
+    this.reason,
+  });
+
+  static MoviePurchaseAvailability? fromJson(Object? value) {
+    if (value is! Map) return null;
+
+    final status = switch (value['status']?.toString()) {
+      'available' => MoviePurchaseAvailabilityStatus.available,
+      'comingSoon' => MoviePurchaseAvailabilityStatus.comingSoon,
+      _ => MoviePurchaseAvailabilityStatus.unavailable,
+    };
+    final backendAllowsPurchase = value['canPurchase'] == true;
+
+    return MoviePurchaseAvailability(
+      platform: Movie._readOptionalCleanString(value['platform']),
+      status: status,
+      canPurchase:
+          status == MoviePurchaseAvailabilityStatus.available &&
+          backendAllowsPurchase,
+      reason: Movie._readOptionalCleanString(value['reason']),
+    );
+  }
+
+  bool get isPurchasable {
+    return status == MoviePurchaseAvailabilityStatus.available && canPurchase;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'platform': platform,
+      'status': switch (status) {
+        MoviePurchaseAvailabilityStatus.available => 'available',
+        MoviePurchaseAvailabilityStatus.comingSoon => 'comingSoon',
+        MoviePurchaseAvailabilityStatus.unavailable => 'unavailable',
+      },
+      'canPurchase': canPurchase,
+      'reason': reason,
+    };
   }
 }
 

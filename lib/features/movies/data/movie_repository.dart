@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
@@ -24,6 +25,29 @@ class MovieRepository {
 
   final ApiClient _apiClient;
   final JsonCacheStore _cacheStore;
+
+  Future<Movie> fetchMovieDetails(String movieId) async {
+    final normalizedMovieId = movieId.trim();
+    if (normalizedMovieId.isEmpty) {
+      throw const ApiException('Missing movie ID');
+    }
+
+    try {
+      final platform = _nativePlatform;
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/movies/movie-details/${Uri.encodeComponent(normalizedMovieId)}',
+        queryParameters: {'platform': ?platform},
+      );
+      final rawMovie = response.data?['movie'];
+      if (rawMovie is! Map) {
+        throw const ApiException('Missing movie details');
+      }
+
+      return Movie.fromJson(Map<String, dynamic>.from(rawMovie));
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
 
   Future<HomeData> fetchHomeData({
     bool forceRefresh = false,
@@ -242,5 +266,13 @@ class MovieRepository {
 
   String _searchCacheKey(String query) {
     return '$_searchCachePrefix${Uri.encodeComponent(query.toLowerCase())}';
+  }
+
+  String? get _nativePlatform {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.iOS => 'ios',
+      TargetPlatform.android => 'android',
+      _ => null,
+    };
   }
 }

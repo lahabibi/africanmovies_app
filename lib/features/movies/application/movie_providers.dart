@@ -15,6 +15,13 @@ final movieRepositoryProvider = Provider<MovieRepository>((ref) {
   );
 });
 
+final movieDetailsProvider = FutureProvider.autoDispose.family<Movie, String>((
+  ref,
+  movieId,
+) {
+  return ref.watch(movieRepositoryProvider).fetchMovieDetails(movieId);
+});
+
 final homeDataProvider = FutureProvider<HomeData>((ref) async {
   final session = await ref.watch(authControllerProvider.future);
   final cacheOwnerKey = _homeDataCacheOwnerKey(session);

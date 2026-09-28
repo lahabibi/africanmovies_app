@@ -68,6 +68,48 @@ void main() {
     expect(movie.storeProducts.hasAnyProductId, isFalse);
   });
 
+  test('parses public purchase availability', () {
+    final movie = Movie.fromJson({
+      '_id': 'movie-1',
+      'purchaseAvailability': {
+        'platform': 'ios',
+        'status': 'comingSoon',
+        'canPurchase': false,
+        'reason': 'apple_approval_pending',
+      },
+    });
+
+    expect(movie.purchaseAvailability?.platform, 'ios');
+    expect(
+      movie.purchaseAvailability?.status,
+      MoviePurchaseAvailabilityStatus.comingSoon,
+    );
+    expect(movie.purchaseAvailability?.canPurchase, isFalse);
+    expect(movie.purchaseAvailability?.isPurchasable, isFalse);
+    expect(
+      movie.toJson()['purchaseAvailability'],
+      containsPair('reason', 'apple_approval_pending'),
+    );
+  });
+
+  test('fails closed for contradictory or unknown purchase availability', () {
+    final contradictory = Movie.fromJson({
+      '_id': 'movie-1',
+      'purchaseAvailability': {'status': 'comingSoon', 'canPurchase': true},
+    });
+    final unknown = Movie.fromJson({
+      '_id': 'movie-2',
+      'purchaseAvailability': {'status': 'unexpected', 'canPurchase': true},
+    });
+
+    expect(contradictory.purchaseAvailability?.isPurchasable, isFalse);
+    expect(unknown.purchaseAvailability?.isPurchasable, isFalse);
+    expect(
+      unknown.purchaseAvailability?.status,
+      MoviePurchaseAvailabilityStatus.unavailable,
+    );
+  });
+
   test('does not retain protected full-movie playback fields', () {
     final movie = Movie.fromJson({
       '_id': 'movie-1',

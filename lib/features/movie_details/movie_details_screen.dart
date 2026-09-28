@@ -38,13 +38,32 @@ class MovieDetailsScreen extends ConsumerStatefulWidget {
 
 enum _MovieAccessState { active, freeAvailable, paymentRequired }
 
+class _MoviePurchaseButtonPresentation {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isEnabled;
+  final bool retriesMovieDetails;
+
+  const _MoviePurchaseButtonPresentation({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isEnabled,
+    this.retriesMovieDetails = false,
+  });
+}
+
 class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   bool _isTogglingWatchlist = false;
   bool _isTogglingFavorite = false;
   bool _isOpeningPlayer = false;
   bool _isOpeningTrailer = false;
 
-  Movie get movie => widget.movie;
+  Movie get movie {
+    return ref.read(movieDetailsProvider(widget.movie.id)).asData?.value ??
+        widget.movie;
+  }
 
   bool _requireAuth(BuildContext context, WidgetRef ref) {
     final hasSession = ref.read(authControllerProvider).asData?.value != null;
@@ -154,6 +173,16 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   }
 
   Future<void> _startPurchaseFlow() async {
+    final availability = movie.purchaseAvailability;
+    if (availability?.isPurchasable != true) {
+      _showMessage(
+        availability?.status == MoviePurchaseAvailabilityStatus.comingSoon
+            ? 'This movie is coming soon and is not available for purchase yet.'
+            : 'This movie is not available for purchase right now.',
+      );
+      return;
+    }
+
     final shouldPurchase = await _showNativePurchaseConfirmation();
     if (shouldPurchase != true || !mounted) return;
 
@@ -563,11 +592,17 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = Responsive.horizontalPadding(context);
+    final movieDetailsState = ref.watch(movieDetailsProvider(widget.movie.id));
+    final currentMovie = movieDetailsState.asData?.value ?? widget.movie;
     final homeDataState = ref.watch(homeDataProvider);
-    final relatedMovies = _relatedMovies(homeDataState);
+    final relatedMovies = _relatedMovies(homeDataState, currentMovie);
     final hasSession = ref.watch(authControllerProvider).asData?.value != null;
-    final accessState = _movieAccessState(homeDataState);
-    final hasAccess = accessState != _MovieAccessState.paymentRequired;
+    final accessState = _movieAccessState(homeDataState, currentMovie);
+    final purchaseButton = _purchaseButtonPresentation(
+      accessState: accessState,
+      movieDetailsState: movieDetailsState,
+      currentMovie: currentMovie,
+    );
     final purchaseState = ref.watch(purchaseControllerProvider);
     final isPurchasing =
         (purchaseState.isLoading &&
@@ -589,7 +624,7 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MovieHero(movie: movie),
+            MovieHero(movie: currentMovie),
             Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
@@ -608,14 +643,16 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
                           Expanded(
                             flex: 3,
                             child: MoviePurchaseButton(
-                              icon: hasAccess
-                                  ? Icons.play_arrow_rounded
-                                  : Icons.lock_outline_rounded,
-                              title: _watchButtonTitle(accessState),
-                              subtitle: _watchButtonSubtitle(accessState),
+                              icon: purchaseButton.icon,
+                              title: purchaseButton.title,
+                              subtitle: purchaseButton.subtitle,
                               isLoading: isPurchasing,
-                              onTap: isPurchasing
+                              onTap: isPurchasing || !purchaseButton.isEnabled
                                   ? null
+                                  : purchaseButton.retriesMovieDetails
+                                  ? () => ref.invalidate(
+                                      movieDetailsProvider(widget.movie.id),
+                                    )
                                   : () => _handleWatchNow(accessState),
                             ),
                           ),
@@ -651,11 +688,11 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
 
                       SizedBox(height: 14.h),
 
-                      _MovieDescription(description: movie.description),
+                      _MovieDescription(description: currentMovie.description),
 
                       SizedBox(height: 12.h),
 
-                      MovieInfoCard(movie: movie),
+                      MovieInfoCard(movie: currentMovie),
 
                       if (relatedMovies.isNotEmpty) ...[
                         SizedBox(height: 14.h),
@@ -723,63 +760,123 @@ class _MovieDetailsScreenState extends ConsumerState<MovieDetailsScreen> {
     );
   }
 
-  _MovieAccessState _movieAccessState(AsyncValue<HomeData> homeDataState) {
+  _MovieAccessState _movieAccessState(
+    AsyncValue<HomeData> homeDataState,
+    Movie currentMovie,
+  ) {
     return homeDataState.maybeWhen(
       data: (data) {
         final movieOrders = data.orders
-            .where((order) => order.movieId == movie.id)
+            .where((order) => order.movieId == currentMovie.id)
             .toList();
 
         if (movieOrders.any((order) => order.hasActiveAccess)) {
           return _MovieAccessState.active;
         }
 
-        if (movie.isFree && movieOrders.isEmpty) {
+        if (currentMovie.isFree && movieOrders.isEmpty) {
           return _MovieAccessState.freeAvailable;
         }
 
         return _MovieAccessState.paymentRequired;
       },
-      orElse: () => movie.isFree
+      orElse: () => currentMovie.isFree
           ? _MovieAccessState.freeAvailable
           : _MovieAccessState.paymentRequired,
     );
   }
 
-  String _watchButtonTitle(_MovieAccessState accessState) {
-    return switch (accessState) {
-      _MovieAccessState.freeAvailable => 'Watch Free',
-      _MovieAccessState.active => 'Watch Now',
-      _MovieAccessState.paymentRequired => 'Watch for ${_paidPriceLabel()}',
-    };
+  _MoviePurchaseButtonPresentation _purchaseButtonPresentation({
+    required _MovieAccessState accessState,
+    required AsyncValue<Movie> movieDetailsState,
+    required Movie currentMovie,
+  }) {
+    if (accessState == _MovieAccessState.freeAvailable) {
+      return const _MoviePurchaseButtonPresentation(
+        icon: Icons.play_arrow_rounded,
+        title: 'Watch Free',
+        subtitle: 'Claim free access',
+        isEnabled: true,
+      );
+    }
+
+    if (accessState == _MovieAccessState.active) {
+      return const _MoviePurchaseButtonPresentation(
+        icon: Icons.play_arrow_rounded,
+        title: 'Watch Now',
+        subtitle: 'In your library',
+        isEnabled: true,
+      );
+    }
+
+    if (movieDetailsState.isLoading) {
+      return const _MoviePurchaseButtonPresentation(
+        icon: Icons.hourglass_top_rounded,
+        title: 'Checking availability',
+        subtitle: 'Please wait',
+        isEnabled: false,
+      );
+    }
+
+    if (movieDetailsState.hasError) {
+      return const _MoviePurchaseButtonPresentation(
+        icon: Icons.refresh_rounded,
+        title: 'Try Again',
+        subtitle: 'Could not check purchase availability',
+        isEnabled: true,
+        retriesMovieDetails: true,
+      );
+    }
+
+    final availability = currentMovie.purchaseAvailability;
+    if (availability?.isPurchasable == true) {
+      return _MoviePurchaseButtonPresentation(
+        icon: Icons.lock_outline_rounded,
+        title: 'Watch for ${_paidPriceLabel(currentMovie)}',
+        subtitle: currentMovie.isFree
+            ? 'Free access used'
+            : 'Add to your library',
+        isEnabled: true,
+      );
+    }
+
+    if (availability?.status == MoviePurchaseAvailabilityStatus.comingSoon) {
+      return const _MoviePurchaseButtonPresentation(
+        icon: Icons.schedule_rounded,
+        title: 'Coming Soon',
+        subtitle: 'Not yet available for purchase',
+        isEnabled: false,
+      );
+    }
+
+    return const _MoviePurchaseButtonPresentation(
+      icon: Icons.block_rounded,
+      title: 'Unavailable',
+      subtitle: 'Purchase temporarily unavailable',
+      isEnabled: false,
+    );
   }
 
-  String _watchButtonSubtitle(_MovieAccessState accessState) {
-    return switch (accessState) {
-      _MovieAccessState.freeAvailable => 'Claim free access',
-      _MovieAccessState.active => 'In your library',
-      _MovieAccessState.paymentRequired =>
-        movie.isFree ? 'Free access used' : 'Add to your library',
-    };
-  }
-
-  String _paidPriceLabel() {
-    final price = movie.price;
-    if (price <= 0) return movie.priceLabel;
+  String _paidPriceLabel(Movie currentMovie) {
+    final price = currentMovie.price;
+    if (price <= 0) return currentMovie.priceLabel;
 
     final decimals = price % 1 == 0 ? 0 : 2;
     return '\$${price.toStringAsFixed(decimals)}';
   }
 
-  List<Movie> _relatedMovies(AsyncValue<HomeData> homeDataState) {
-    final selectedGenre = movie.genre.trim().toLowerCase();
+  List<Movie> _relatedMovies(
+    AsyncValue<HomeData> homeDataState,
+    Movie currentMovie,
+  ) {
+    final selectedGenre = currentMovie.genre.trim().toLowerCase();
     if (selectedGenre.isEmpty) return const [];
 
     return homeDataState.maybeWhen(
       data: (data) => data.movies
           .where(
             (relatedMovie) =>
-                relatedMovie.id != movie.id &&
+                relatedMovie.id != currentMovie.id &&
                 relatedMovie.genre.trim().toLowerCase() == selectedGenre,
           )
           .take(12)
