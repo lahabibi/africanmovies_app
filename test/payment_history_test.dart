@@ -74,4 +74,47 @@ void main() {
       expect(response.summary.completed, 0);
     },
   );
+
+  test('identifies only completed paid Apple transactions as refundable', () {
+    PaymentHistoryPayment payment({
+      String provider = 'apple',
+      String platform = 'ios',
+      String status = 'Completed',
+      String financialStatus = 'completed',
+      String entitlementStatus = 'active',
+      Object amount = 0.99,
+      String transactionId = '2000000123456789',
+    }) {
+      return PaymentHistoryPayment.fromJson({
+        'id': 'payment-1',
+        'txRef': 'tx-1',
+        'amount': amount,
+        'currency': 'USD',
+        'status': status,
+        'financialStatus': financialStatus,
+        'provider': provider,
+        'platform': platform,
+        'productId': 'com.africanmovies.movie.test.rental',
+        'entitlementStatus': entitlementStatus,
+        'transactionId': transactionId,
+      });
+    }
+
+    final eligible = payment();
+
+    expect(eligible.provider, 'apple');
+    expect(eligible.platform, 'ios');
+    expect(eligible.productId, 'com.africanmovies.movie.test.rental');
+    expect(eligible.canRequestAppleRefund, isTrue);
+    expect(payment(provider: 'google').canRequestAppleRefund, isFalse);
+    expect(payment(platform: 'android').canRequestAppleRefund, isFalse);
+    expect(payment(status: 'Pending').canRequestAppleRefund, isFalse);
+    expect(payment(financialStatus: 'refunded').canRequestAppleRefund, isFalse);
+    expect(
+      payment(entitlementStatus: 'revoked').canRequestAppleRefund,
+      isFalse,
+    );
+    expect(payment(amount: 0).canRequestAppleRefund, isFalse);
+    expect(payment(transactionId: 'GPA.123').canRequestAppleRefund, isFalse);
+  });
 }

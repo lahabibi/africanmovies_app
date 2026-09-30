@@ -1,4 +1,5 @@
 import 'package:africanmovies/features/payment/application/payment_providers.dart';
+import 'package:africanmovies/features/payment/data/apple_refund_request_gateway.dart';
 import 'package:africanmovies/features/payment/domain/payment_history.dart';
 import 'package:africanmovies/shared/widgets/app_image.dart';
 import 'package:africanmovies/shared/widgets/app_scaffold.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_radius.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/utils/responsive.dart';
 
 class PurchaseHistoryScreen extends ConsumerWidget {
@@ -484,13 +486,82 @@ Future<void> _showPurchaseHistoryDetails(
   );
 }
 
-class _PurchaseHistoryDetailsSheet extends StatelessWidget {
+class _PurchaseHistoryDetailsSheet extends ConsumerStatefulWidget {
   final PaymentHistoryItem item;
 
   const _PurchaseHistoryDetailsSheet({required this.item});
 
   @override
+  ConsumerState<_PurchaseHistoryDetailsSheet> createState() =>
+      _PurchaseHistoryDetailsSheetState();
+}
+
+class _PurchaseHistoryDetailsSheetState
+    extends ConsumerState<_PurchaseHistoryDetailsSheet> {
+  bool _isRequestingRefund = false;
+  bool _refundSubmitted = false;
+
+  PaymentHistoryItem get item => widget.item;
+
+  Future<void> _requestRefund() async {
+    if (_isRequestingRefund || _refundSubmitted) return;
+
+    final transactionId = item.payment?.transactionId?.trim() ?? '';
+    if (transactionId.isEmpty) return;
+
+    setState(() => _isRequestingRefund = true);
+    final coordinator = ref.read(appleRefundRequestCoordinatorProvider);
+
+    try {
+      var currentConsent = false;
+      try {
+        currentConsent = await coordinator.loadCurrentConsent(transactionId);
+      } catch (_) {
+        // The selected choice is saved before StoreKit opens, so defaulting to
+        // no sharing here does not weaken the user's consent.
+      }
+
+      if (!mounted) return;
+      final shareViewingActivity = await _showRefundConsentDialog(
+        context,
+        initiallyConsented: currentConsent,
+      );
+      if (shareViewingActivity == null || !mounted) return;
+
+      final status = await coordinator.requestRefund(
+        transactionId: transactionId,
+        shareViewingActivity: shareViewingActivity,
+      );
+      if (!mounted) return;
+
+      if (status == AppleRefundRequestStatus.submitted) {
+        setState(() => _refundSubmitted = true);
+        _showMessage(
+          'Refund request sent to Apple. Apple will notify you of its decision.',
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_refundErrorMessage(error));
+    } finally {
+      if (mounted) {
+        setState(() => _isRequestingRefund = false);
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final canRequestRefund =
+        ref.watch(appleRefundRequestSupportedProvider) &&
+        item.payment?.canRequestAppleRefund == true;
+
     return SafeArea(
       top: false,
       child: Container(
@@ -588,11 +659,156 @@ class _PurchaseHistoryDetailsSheet extends StatelessWidget {
                 value: item.payment!.refundReasonLabel,
               ),
             ],
+            if (canRequestRefund) ...[
+              SizedBox(height: 12.h),
+              SizedBox(
+                width: double.infinity,
+                height: 46.h,
+                child: OutlinedButton.icon(
+                  key: const Key('request-apple-refund-button'),
+                  onPressed: _isRequestingRefund || _refundSubmitted
+                      ? null
+                      : _requestRefund,
+                  icon: _isRequestingRefund
+                      ? SizedBox(
+                          width: 17.sp,
+                          height: 17.sp,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(
+                          _refundSubmitted
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.currency_exchange_rounded,
+                          size: 19.sp,
+                        ),
+                  label: Text(
+                    _refundSubmitted ? 'Request Submitted' : 'Request Refund',
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    disabledForegroundColor: AppColors.textSecondary,
+                    side: BorderSide(
+                      color: _refundSubmitted
+                          ? AppColors.cardBorder
+                          : AppColors.primary.withValues(alpha: 0.65),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+Future<bool?> _showRefundConsentDialog(
+  BuildContext context, {
+  required bool initiallyConsented,
+}) {
+  var shareViewingActivity = initiallyConsented;
+
+  return showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppColors.card,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              side: const BorderSide(color: AppColors.cardBorder),
+            ),
+            title: Text(
+              'Request a refund',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20.sp,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Apple reviews and decides refund requests. Sharing viewing activity is optional and does not affect your ability to continue.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13.sp,
+                    height: 1.4,
+                  ),
+                ),
+                SizedBox(height: 12.h),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: AppColors.primary,
+                  value: shareViewingActivity,
+                  onChanged: (value) {
+                    setDialogState(() => shareViewingActivity = value == true);
+                  },
+                  title: Text(
+                    'Share movie delivery and viewing activity with Apple',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 14.h),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext, shareViewingActivity);
+                },
+                child: Text(
+                  'Continue to Apple',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+String _refundErrorMessage(Object error) {
+  if (error is ApiException) return error.message;
+  if (error is AppleRefundRequestException) return error.message;
+
+  return 'We could not start the Apple refund request. Please try again.';
 }
 
 class _DetailRow extends StatelessWidget {

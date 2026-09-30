@@ -233,6 +233,10 @@ class PaymentHistoryPayment {
   final String currency;
   final String status;
   final String financialStatus;
+  final String provider;
+  final String? paymentMethod;
+  final String? platform;
+  final String? productId;
   final String? entitlementStatus;
   final String? transactionId;
   final DateTime? createdAt;
@@ -247,6 +251,10 @@ class PaymentHistoryPayment {
     required this.currency,
     required this.status,
     required this.financialStatus,
+    required this.provider,
+    this.paymentMethod,
+    this.platform,
+    this.productId,
     this.entitlementStatus,
     this.transactionId,
     this.createdAt,
@@ -266,6 +274,10 @@ class PaymentHistoryPayment {
           json['financialStatus']?.toString() ??
           json['status']?.toString().toLowerCase() ??
           'unknown',
+      provider: json['provider']?.toString() ?? '',
+      paymentMethod: json['paymentMethod']?.toString(),
+      platform: json['platform']?.toString(),
+      productId: json['productId']?.toString(),
       entitlementStatus: json['entitlementStatus']?.toString(),
       transactionId: json['transactionId']?.toString(),
       createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
@@ -276,6 +288,18 @@ class PaymentHistoryPayment {
   }
 
   bool get isRefunded => financialStatus.toLowerCase() == 'refunded';
+
+  bool get canRequestAppleRefund {
+    final normalizedTransactionId = transactionId?.trim() ?? '';
+
+    return provider.toLowerCase() == 'apple' &&
+        platform?.toLowerCase() == 'ios' &&
+        status.toLowerCase() == 'completed' &&
+        financialStatus.toLowerCase() == 'completed' &&
+        entitlementStatus?.toLowerCase() != 'revoked' &&
+        (amount ?? 0) > 0 &&
+        RegExp(r'^\d+$').hasMatch(normalizedTransactionId);
+  }
 
   String get financialStatusLabel {
     return switch (financialStatus.toLowerCase()) {

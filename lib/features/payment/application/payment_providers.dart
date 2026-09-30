@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +10,7 @@ import '../../auth/application/auth_controller.dart';
 import '../../movies/application/movie_providers.dart';
 import '../../movies/domain/movie.dart';
 import '../../notifications/application/notification_providers.dart';
+import '../data/apple_refund_request_gateway.dart';
 import '../data/native_store_payment_gateway.dart';
 import '../data/pending_native_purchase_store.dart';
 import '../data/payment_repository.dart';
@@ -18,6 +20,7 @@ import '../domain/payment_confirmation.dart';
 import '../domain/payment_intent.dart';
 import '../domain/pending_native_purchase.dart';
 import '../domain/purchase_result.dart';
+import 'apple_refund_request_coordinator.dart';
 
 const bool _paymentDiagnosticsEnabled = bool.fromEnvironment(
   'AM_PAYMENT_DIAGNOSTICS',
@@ -27,6 +30,28 @@ const bool _paymentDiagnosticsEnabled = bool.fromEnvironment(
 final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
   return PaymentRepository(apiClient: ref.watch(apiClientProvider));
 });
+
+final appleRefundRequestGatewayProvider = Provider<AppleRefundRequestGateway>((
+  ref,
+) {
+  return AppleRefundRequestGateway();
+});
+
+final appleRefundRequestSupportedProvider = Provider<bool>((ref) {
+  return !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+});
+
+final appleRefundRequestCoordinatorProvider =
+    Provider<AppleRefundRequestCoordinator>((ref) {
+      final repository = ref.watch(paymentRepositoryProvider);
+      final gateway = ref.watch(appleRefundRequestGatewayProvider);
+
+      return AppleRefundRequestCoordinator(
+        loadConsent: repository.fetchAppleRefundConsent,
+        updateConsent: repository.updateAppleRefundConsent,
+        beginRefundRequest: gateway.beginRefundRequest,
+      );
+    });
 
 final pendingNativePurchaseStoreProvider = Provider<PendingNativePurchaseStore>(
   (ref) {
