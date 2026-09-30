@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../domain/apple_refund_consent.dart';
 import '../domain/payment_confirmation.dart';
 import '../domain/payment_gateway.dart';
 import '../domain/payment_history.dart';
@@ -139,6 +140,61 @@ class PaymentRepository {
       }
 
       return PaymentHistoryResponse.fromJson(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<AppleRefundConsent> fetchAppleRefundConsent(
+    String transactionId,
+  ) async {
+    final normalizedTransactionId = transactionId.trim();
+    if (normalizedTransactionId.isEmpty) {
+      throw const ApiException('Missing Apple transaction ID');
+    }
+
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/payment/app-store/refund-consent/'
+        '${Uri.encodeComponent(normalizedTransactionId)}',
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing Apple refund consent data');
+      }
+
+      return AppleRefundConsent.fromJson(data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<AppleRefundConsent> updateAppleRefundConsent({
+    required String transactionId,
+    required bool consented,
+  }) async {
+    final normalizedTransactionId = transactionId.trim();
+    if (normalizedTransactionId.isEmpty) {
+      throw const ApiException('Missing Apple transaction ID');
+    }
+
+    try {
+      final response = await _apiClient.put<Map<String, dynamic>>(
+        '/payment/app-store/refund-consent/'
+        '${Uri.encodeComponent(normalizedTransactionId)}',
+        data: {
+          'consented': consented,
+          if (consented) 'consentVersion': appleRefundConsentVersion,
+        },
+      );
+
+      final data = response.data;
+      if (data == null) {
+        throw const ApiException('Missing Apple refund consent data');
+      }
+
+      return AppleRefundConsent.fromJson(data);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
