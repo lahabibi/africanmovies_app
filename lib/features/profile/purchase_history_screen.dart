@@ -500,6 +500,8 @@ class _PurchaseHistoryDetailsSheetState
     extends ConsumerState<_PurchaseHistoryDetailsSheet> {
   bool _isRequestingRefund = false;
   bool _refundSubmitted = false;
+  String? _refundStatusMessage;
+  bool _refundStatusIsError = false;
 
   PaymentHistoryItem get item => widget.item;
 
@@ -509,7 +511,11 @@ class _PurchaseHistoryDetailsSheetState
     final transactionId = item.payment?.transactionId?.trim() ?? '';
     if (transactionId.isEmpty) return;
 
-    setState(() => _isRequestingRefund = true);
+    setState(() {
+      _isRequestingRefund = true;
+      _refundStatusMessage = null;
+      _refundStatusIsError = false;
+    });
     final coordinator = ref.read(appleRefundRequestCoordinatorProvider);
 
     try {
@@ -535,25 +541,28 @@ class _PurchaseHistoryDetailsSheetState
       if (!mounted) return;
 
       if (status == AppleRefundRequestStatus.submitted) {
-        setState(() => _refundSubmitted = true);
-        _showMessage(
-          'Refund request sent to Apple. Apple will notify you of its decision.',
-        );
+        setState(() {
+          _refundSubmitted = true;
+          _refundStatusMessage =
+              'Refund request sent to Apple. Apple will notify you of its decision.';
+        });
+      } else {
+        setState(() {
+          _refundStatusMessage =
+              'Refund request cancelled. No request was sent to Apple.';
+        });
       }
     } catch (error) {
       if (!mounted) return;
-      _showMessage(_refundErrorMessage(error));
+      setState(() {
+        _refundStatusMessage = _refundErrorMessage(error);
+        _refundStatusIsError = true;
+      });
     } finally {
       if (mounted) {
         setState(() => _isRequestingRefund = false);
       }
     }
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -702,6 +711,55 @@ class _PurchaseHistoryDetailsSheetState
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                   ),
+                ),
+              ),
+            ],
+            if (_refundStatusMessage != null) ...[
+              SizedBox(height: 10.h),
+              Container(
+                key: const Key('apple-refund-status-message'),
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                decoration: BoxDecoration(
+                  color:
+                      (_refundStatusIsError
+                              ? AppColors.danger
+                              : AppColors.primary)
+                          .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(
+                    color:
+                        (_refundStatusIsError
+                                ? AppColors.danger
+                                : AppColors.primary)
+                            .withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      _refundStatusIsError
+                          ? Icons.error_outline_rounded
+                          : Icons.info_outline_rounded,
+                      color: _refundStatusIsError
+                          ? AppColors.danger
+                          : AppColors.primary,
+                      size: 18.sp,
+                    ),
+                    SizedBox(width: 9.w),
+                    Expanded(
+                      child: Text(
+                        _refundStatusMessage!,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.sp,
+                          height: 1.35,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -65,6 +65,102 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('apple-refund-status-message')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keeps an Apple refund error visible in the details sheet', (
+    tester,
+  ) async {
+    const errorMessage = 'A refund request already exists for this purchase.';
+    final coordinator = AppleRefundRequestCoordinator(
+      loadConsent: (_) async => const AppleRefundConsent(
+        transactionId: '2000000123456789',
+        consented: true,
+        consentVersion: appleRefundConsentVersion,
+        requiredConsentVersion: appleRefundConsentVersion,
+      ),
+      updateConsent:
+          ({required String transactionId, required bool consented}) async {
+            return AppleRefundConsent(
+              transactionId: transactionId,
+              consented: consented,
+              consentVersion: appleRefundConsentVersion,
+              requiredConsentVersion: appleRefundConsentVersion,
+            );
+          },
+      beginRefundRequest: (_) async => throw const AppleRefundRequestException(
+        code: 'duplicate_request',
+        message: errorMessage,
+      ),
+    );
+
+    await _pumpHistory(
+      tester,
+      history: _history(provider: 'apple', platform: 'ios'),
+      coordinator: coordinator,
+    );
+
+    await tester.tap(find.text('Apple Movie').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Request Refund'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Continue to Apple'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(errorMessage), findsOneWidget);
+    expect(
+      find.byKey(const Key('apple-refund-status-message')),
+      findsOneWidget,
+    );
+    expect(find.text('Request Refund'), findsOneWidget);
+    final button = tester.widget<OutlinedButton>(
+      find.byKey(const Key('request-apple-refund-button')),
+    );
+    expect(button.onPressed, isNotNull);
+  });
+
+  testWidgets('shows when the Apple refund sheet is cancelled', (tester) async {
+    final coordinator = AppleRefundRequestCoordinator(
+      loadConsent: (_) async => const AppleRefundConsent(
+        transactionId: '2000000123456789',
+        consented: false,
+        requiredConsentVersion: appleRefundConsentVersion,
+      ),
+      updateConsent:
+          ({required String transactionId, required bool consented}) async {
+            return AppleRefundConsent(
+              transactionId: transactionId,
+              consented: consented,
+              consentVersion: consented ? appleRefundConsentVersion : null,
+              requiredConsentVersion: appleRefundConsentVersion,
+            );
+          },
+      beginRefundRequest: (_) async => AppleRefundRequestStatus.cancelled,
+    );
+
+    await _pumpHistory(
+      tester,
+      history: _history(provider: 'apple', platform: 'ios'),
+      coordinator: coordinator,
+    );
+
+    await tester.tap(find.text('Apple Movie').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Request Refund'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Continue to Apple'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Refund request cancelled. No request was sent to Apple.'),
+      findsOneWidget,
+    );
+    expect(find.text('Request Refund'), findsOneWidget);
   });
 
   testWidgets('does not show the Apple action for a Google Play purchase', (
