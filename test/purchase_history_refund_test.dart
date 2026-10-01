@@ -192,12 +192,40 @@ void main() {
 
     expect(find.text('Request Refund'), findsNothing);
   });
+
+  testWidgets('does not show the Apple action when rollout is disabled', (
+    tester,
+  ) async {
+    final coordinator = AppleRefundRequestCoordinator(
+      loadConsent: (_) async => throw StateError('should not load consent'),
+      updateConsent:
+          ({required String transactionId, required bool consented}) async {
+            throw StateError('should not save consent');
+          },
+      beginRefundRequest: (_) async {
+        throw StateError('should not open StoreKit');
+      },
+    );
+
+    await _pumpHistory(
+      tester,
+      history: _history(provider: 'apple', platform: 'ios'),
+      coordinator: coordinator,
+      refundRequestsSupported: false,
+    );
+
+    await tester.tap(find.text('Apple Movie').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Request Refund'), findsNothing);
+  });
 }
 
 Future<void> _pumpHistory(
   WidgetTester tester, {
   required PaymentHistoryResponse history,
   required AppleRefundRequestCoordinator coordinator,
+  bool refundRequestsSupported = true,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(390, 844);
@@ -211,7 +239,9 @@ Future<void> _pumpHistory(
         appleRefundRequestCoordinatorProvider.overrideWith(
           (ref) => coordinator,
         ),
-        appleRefundRequestSupportedProvider.overrideWith((ref) => true),
+        appleRefundRequestSupportedProvider.overrideWith(
+          (ref) => refundRequestsSupported,
+        ),
       ],
       child: ScreenUtilInit(
         designSize: const Size(390, 844),

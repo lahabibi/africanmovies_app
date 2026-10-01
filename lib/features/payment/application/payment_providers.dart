@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../auth/application/auth_controller.dart';
@@ -38,7 +39,9 @@ final appleRefundRequestGatewayProvider = Provider<AppleRefundRequestGateway>((
 });
 
 final appleRefundRequestSupportedProvider = Provider<bool>((ref) {
-  return !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  return AppConfig.appleRefundRequestsEnabled &&
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.iOS;
 });
 
 final appleRefundRequestCoordinatorProvider =

@@ -5,6 +5,11 @@ class AppConfig {
 
   static const productionApiBaseUrl = 'https://api.africanmovies.com/api';
 
+  static const appleRefundRequestsEnabled = bool.fromEnvironment(
+    'AM_APPLE_REFUND_REQUESTS_ENABLED',
+    defaultValue: false,
+  );
+
   static const _apiBaseUrlOverride = String.fromEnvironment(
     'AFRICAN_MOVIES_API_BASE_URL',
     defaultValue: '',

@@ -2,6 +2,10 @@ import 'package:africanmovies/core/config/app_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('Apple refund requests are hidden by default', () {
+    expect(AppConfig.appleRefundRequestsEnabled, isFalse);
+  });
+
   test('release builds use the production API by default', () {
     expect(
       AppConfig.resolveApiBaseUrl(isRelease: true),
