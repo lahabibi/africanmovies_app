@@ -356,94 +356,108 @@ class _SearchResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = Responsive.isTablet(context);
-    final cardHeight = isTablet ? 174.0 : 130.h;
-    final imageWidth = isTablet ? 230.0 : 156.w;
-    final horizontalPadding = isTablet ? 22.0 : 12.w;
     final scoreLabel = movie.scoreLabel;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: cardHeight,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppColors.card.withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.cardBorder, width: 0.8),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: imageWidth,
-              height: double.infinity,
-              child: AppImage(source: movie.displayPosterUrl),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardHeight = isTablet ? 174.0 : 150.0;
+        final imageWidth = isTablet
+            ? 230.0
+            : (constraints.maxWidth * 0.34).clamp(108.0, 126.0).toDouble();
+        final horizontalPadding = isTablet ? 22.0 : 10.w;
+
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            key: ValueKey('search-result-card-${movie.id}'),
+            height: cardHeight,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppColors.card.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.cardBorder, width: 0.8),
             ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
-                  vertical: isTablet ? 16 : 12.h,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: imageWidth,
+                  height: double.infinity,
+                  child: AppImage(
+                    source: movie.displayPosterUrl,
+                    alignment: Alignment.topCenter,
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      movie.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: isTablet ? 22 : 16.sp,
-                        fontWeight: FontWeight.w800,
-                        height: 1.12,
-                      ),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: isTablet ? 16 : 11,
                     ),
-                    SizedBox(height: isTablet ? 8 : 5.h),
-                    _MovieMetaRow(movie: movie),
-                    SizedBox(height: isTablet ? 10 : 7.h),
-                    Expanded(
-                      child: Text(
-                        movie.description,
-                        maxLines: isTablet ? 3 : 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: isTablet ? 15 : 12.sp,
-                          fontWeight: FontWeight.w400,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: isTablet ? 10 : 7.h),
-                    Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (scoreLabel != null) ...[
-                          Icon(
-                            Icons.star_rounded,
-                            color: const Color(0xFFFFD21F),
-                            size: isTablet ? 22 : 17.sp,
+                        Text(
+                          movie.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isTablet ? 22 : 16.sp,
+                            fontWeight: FontWeight.w800,
+                            height: 1.12,
                           ),
-                          SizedBox(width: isTablet ? 7 : 5.w),
-                          Text(
-                            scoreLabel,
+                        ),
+                        SizedBox(height: isTablet ? 8 : 5.h),
+                        _MovieMetaRow(movie: movie),
+                        SizedBox(height: isTablet ? 10 : 7.h),
+                        Expanded(
+                          child: Text(
+                            movie.description,
+                            maxLines: isTablet ? 3 : 2,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: AppColors.textSecondary,
-                              fontSize: isTablet ? 16 : 12.sp,
-                              fontWeight: FontWeight.w700,
+                              fontSize: isTablet ? 15 : 12.sp,
+                              fontWeight: FontWeight.w400,
+                              height: 1.35,
                             ),
                           ),
-                          SizedBox(width: isTablet ? 14 : 12.w),
-                        ],
-                        _AgePill(label: movie.ageRatingLabel),
+                        ),
+                        SizedBox(height: isTablet ? 10 : 7.h),
+                        Row(
+                          children: [
+                            if (scoreLabel != null) ...[
+                              Icon(
+                                Icons.star_rounded,
+                                color: const Color(0xFFFFD21F),
+                                size: isTablet ? 22 : 17.sp,
+                              ),
+                              SizedBox(width: isTablet ? 7 : 5.w),
+                              Text(
+                                scoreLabel,
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: isTablet ? 16 : 12.sp,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              SizedBox(width: isTablet ? 14 : 12.w),
+                            ],
+                            _AgePill(
+                              key: ValueKey('search-result-age-${movie.id}'),
+                              label: movie.ageRatingLabel,
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -524,7 +538,7 @@ class _MetaDot extends StatelessWidget {
 class _AgePill extends StatelessWidget {
   final String label;
 
-  const _AgePill({required this.label});
+  const _AgePill({super.key, required this.label});
 
   @override
   Widget build(BuildContext context) {

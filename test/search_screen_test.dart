@@ -51,6 +51,63 @@ void main() {
     expect(find.text('Drama'), findsOneWidget);
     expect(find.text('12+'), findsOneWidget);
   });
+
+  testWidgets('keeps compact phone result content inside the card', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 640);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const description =
+        'A determined family faces a difficult journey while protecting the '
+        'people and home they love most.';
+    final movie = _movie(
+      id: 'compact-movie',
+      title: 'The Extraordinary Lion Heart Story',
+      description: description,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          movieSearchProvider.overrideWith((ref, query) async {
+            return query.toLowerCase() == 'lion' ? [movie] : const [];
+          }),
+        ],
+        child: ScreenUtilInit(
+          designSize: const Size(390, 844),
+          builder: (_, _) => MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: const SearchScreen(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'lion');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    final cardFinder = find.byKey(
+      const ValueKey('search-result-card-compact-movie'),
+    );
+    final ageFinder = find.byKey(
+      const ValueKey('search-result-age-compact-movie'),
+    );
+    final cardRect = tester.getRect(cardFinder);
+    final descriptionRect = tester.getRect(find.text(description));
+    final ageRect = tester.getRect(ageFinder);
+
+    expect(cardFinder, findsOneWidget);
+    expect(descriptionRect.height, greaterThanOrEqualTo(24));
+    expect(descriptionRect.left, greaterThanOrEqualTo(cardRect.left));
+    expect(descriptionRect.right, lessThanOrEqualTo(cardRect.right));
+    expect(ageRect.bottom, lessThanOrEqualTo(cardRect.bottom));
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Movie _movie({
