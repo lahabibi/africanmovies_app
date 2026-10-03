@@ -51,6 +51,28 @@ void main() {
     expect(notifications, hasLength(1));
     expect(notifications.first.isRead, isTrue);
   });
+
+  test('clears notifications without resetting seen releases', () async {
+    final repository = NotificationRepository(cacheStore: JsonCacheStore());
+    final firstMovie = _movie(id: 'movie-1', title: 'First Movie');
+    final secondMovie = _movie(id: 'movie-2', title: 'Second Movie');
+
+    await repository.syncNewReleases([firstMovie]);
+    final notifications = await repository.syncNewReleases([
+      secondMovie,
+      firstMovie,
+    ]);
+    expect(notifications, hasLength(1));
+
+    expect(await repository.clearAll(), isEmpty);
+    expect(await repository.readNotifications(), isEmpty);
+
+    final repeatedSync = await repository.syncNewReleases([
+      secondMovie,
+      firstMovie,
+    ]);
+    expect(repeatedSync, isEmpty);
+  });
 }
 
 Movie _movie({required String id, required String title}) {

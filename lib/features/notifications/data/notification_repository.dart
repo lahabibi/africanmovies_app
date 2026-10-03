@@ -108,6 +108,10 @@ class NotificationRepository {
     return _writeNotifications(notifications);
   }
 
+  Future<List<InAppNotification>> clearAll() {
+    return _writeNotifications(const <InAppNotification>[]);
+  }
+
   Future<List<InAppNotification>> _addNotification(
     InAppNotification notification,
   ) async {

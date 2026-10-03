@@ -37,6 +37,68 @@ class NotificationsScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _confirmClearAll(BuildContext context, WidgetRef ref) async {
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            side: const BorderSide(color: AppColors.cardBorder),
+          ),
+          title: Text(
+            'Clear all notifications?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            'This removes all notifications from this device. '
+            'This cannot be undone.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14.sp,
+              height: 1.4,
+            ),
+          ),
+          actionsPadding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 14.h),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(
+                'Clear all',
+                style: TextStyle(
+                  color: AppColors.danger,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldClear != true || !context.mounted) return;
+
+    await ref.read(notificationsControllerProvider.notifier).clearAll();
+  }
+
   Movie? _movieForNotification(WidgetRef ref, InAppNotification notification) {
     final movieId = notification.movieId;
     if (movieId == null || movieId.isEmpty) return null;
@@ -83,6 +145,11 @@ class NotificationsScreen extends ConsumerWidget {
                                 .markAllAsRead();
                           }
                         : null,
+                    onClearAll: notifications.isEmpty
+                        ? null
+                        : () {
+                            _confirmClearAll(context, ref);
+                          },
                   ),
                   error: (error, _) => _NotificationsMessage(
                     icon: Icons.wifi_off_rounded,
@@ -113,11 +180,13 @@ class _NotificationsContent extends StatelessWidget {
   final List<InAppNotification> notifications;
   final ValueChanged<InAppNotification> onNotificationTap;
   final VoidCallback? onMarkAllRead;
+  final VoidCallback? onClearAll;
 
   const _NotificationsContent({
     required this.notifications,
     required this.onNotificationTap,
     required this.onMarkAllRead,
+    required this.onClearAll,
   });
 
   @override
@@ -134,6 +203,7 @@ class _NotificationsContent extends StatelessWidget {
             child: _NotificationsTitle(
               unreadCount: unreadCount,
               onMarkAllRead: onMarkAllRead,
+              onClearAll: onClearAll,
             ),
           ),
         ),
@@ -168,10 +238,12 @@ class _NotificationsContent extends StatelessWidget {
 class _NotificationsTitle extends StatelessWidget {
   final int unreadCount;
   final VoidCallback? onMarkAllRead;
+  final VoidCallback? onClearAll;
 
   const _NotificationsTitle({
     required this.unreadCount,
     required this.onMarkAllRead,
+    required this.onClearAll,
   });
 
   @override
@@ -224,6 +296,22 @@ class _NotificationsTitle extends StatelessWidget {
               ),
             ),
           ),
+        if (onClearAll != null) ...[
+          SizedBox(width: 4.w),
+          IconButton(
+            key: const Key('notifications_clear_all'),
+            onPressed: onClearAll,
+            tooltip: 'Clear notifications',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              Icons.delete_sweep_outlined,
+              color: AppColors.textSecondary,
+              size: isTablet ? 23 : 20.sp,
+            ),
+          ),
+        ],
       ],
     );
   }

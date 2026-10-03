@@ -72,4 +72,12 @@ class NotificationsController extends AsyncNotifier<List<InAppNotification>> {
 
     state = AsyncData(notifications);
   }
+
+  Future<void> clearAll() async {
+    final notifications = await ref
+        .read(notificationRepositoryProvider)
+        .clearAll();
+
+    state = AsyncData(notifications);
+  }
 }
