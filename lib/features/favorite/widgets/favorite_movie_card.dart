@@ -20,6 +20,8 @@ class FavoriteMovieCard extends StatelessWidget {
   final String menuTitle;
   final String? menuSubtitle;
   final bool isMenuLoading;
+  final bool showPlayAction;
+  final bool isPlayLoading;
 
   const FavoriteMovieCard({
     super.key,
@@ -36,6 +38,8 @@ class FavoriteMovieCard extends StatelessWidget {
     this.menuTitle = 'Watch Now',
     this.menuSubtitle = '\$0.99',
     this.isMenuLoading = false,
+    this.showPlayAction = true,
+    this.isPlayLoading = false,
   });
 
   @override
@@ -111,30 +115,40 @@ class FavoriteMovieCard extends StatelessWidget {
                     ),
                   ),
 
-                  Positioned(
-                    left: 8.w,
-                    bottom: 8.h,
-                    child: GestureDetector(
-                      onTap: onPlayTap,
-                      child: Container(
-                        width: 22.w,
-                        height: 22.w,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withValues(alpha: 0.42),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.7),
+                  if (showPlayAction)
+                    Positioned(
+                      left: 8.w,
+                      bottom: 8.h,
+                      child: GestureDetector(
+                        onTap: isPlayLoading ? null : onPlayTap,
+                        child: Container(
+                          width: 22.w,
+                          height: 22.w,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black.withValues(alpha: 0.42),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
                           ),
-                        ),
-                        child: Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 14.sp,
+                          child: isPlayLoading
+                              ? SizedBox(
+                                  width: 10.w,
+                                  height: 10.w,
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 1.6,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 14.sp,
+                                ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

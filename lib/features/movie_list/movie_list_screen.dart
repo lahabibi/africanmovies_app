@@ -1,19 +1,31 @@
+import 'package:africanmovies/core/network/api_exception.dart';
 import 'package:africanmovies/features/favorite/widgets/favorite_movie_card.dart';
 import 'package:africanmovies/features/movie_details/movie_details_screen.dart';
+import 'package:africanmovies/features/movies/application/movie_providers.dart';
 import 'package:africanmovies/features/movies/domain/movie.dart';
+import 'package:africanmovies/features/player/application/player_providers.dart';
+import 'package:africanmovies/features/player/movie_player_screen.dart';
 import 'package:africanmovies/shared/widgets/app_scaffold.dart';
 import 'package:africanmovies/shared/widgets/app_screen_header.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/responsive.dart';
 
-class MovieListScreen extends StatelessWidget {
+class MovieListScreen extends ConsumerStatefulWidget {
   final String title;
   final List<Movie> movies;
 
   const MovieListScreen({super.key, required this.title, required this.movies});
+
+  @override
+  ConsumerState<MovieListScreen> createState() => _MovieListScreenState();
+}
+
+class _MovieListScreenState extends ConsumerState<MovieListScreen> {
+  String? _openingMovieId;
 
   void _openMovieDetails(BuildContext context, Movie movie) {
     Navigator.push(
@@ -22,10 +34,58 @@ class MovieListScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _openMoviePlayer(Movie movie) async {
+    if (_openingMovieId != null) return;
+
+    setState(() => _openingMovieId = movie.id);
+
+    try {
+      final playback = await ref
+          .read(playerRepositoryProvider)
+          .requestMoviePlayback(movie.id);
+
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MoviePlayerScreen(playback: playback),
+        ),
+      );
+
+      if (!mounted) return;
+      ref.invalidate(homeDataProvider);
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(_messageFor(error));
+    } finally {
+      if (mounted) setState(() => _openingMovieId = null);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _messageFor(Object error) {
+    if (error is ApiException) return error.message;
+
+    return error.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     final headerHeight = Responsive.headerHeight(context);
     final gridSpacing = Responsive.gridSpacing(context);
+    final activeLibraryMovieIds = ref
+        .watch(homeDataProvider)
+        .maybeWhen(
+          data: (data) =>
+              data.activeLibraryOrders.map((order) => order.movieId).toSet(),
+          orElse: () => const <String>{},
+        );
 
     return AppScaffold(
       usePadding: true,
@@ -41,7 +101,7 @@ class MovieListScreen extends StatelessWidget {
                   SizedBox(height: 4.h),
 
                   Text(
-                    title,
+                    widget.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -54,7 +114,7 @@ class MovieListScreen extends StatelessWidget {
                   SizedBox(height: 4.h),
 
                   Text(
-                    '${movies.length} Titles',
+                    '${widget.movies.length} Titles',
                     style: TextStyle(
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
@@ -65,7 +125,7 @@ class MovieListScreen extends StatelessWidget {
                   SizedBox(height: 10.h),
 
                   GridView.builder(
-                    itemCount: movies.length,
+                    itemCount: widget.movies.length,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -77,7 +137,14 @@ class MovieListScreen extends StatelessWidget {
                       ),
                     ),
                     itemBuilder: (_, index) {
-                      final movie = movies[index];
+                      final movie = widget.movies[index];
+                      final hasActiveAccess = activeLibraryMovieIds.contains(
+                        movie.id,
+                      );
+                      final isOpening = _openingMovieId == movie.id;
+                      final openMovie = hasActiveAccess
+                          ? () => _openMoviePlayer(movie)
+                          : () => _openMovieDetails(context, movie);
 
                       return FavoriteMovieCard(
                         image: movie.displayPosterUrl,
@@ -86,9 +153,14 @@ class MovieListScreen extends StatelessWidget {
                         duration: movie.durationLabel,
                         year: movie.yearLabel,
                         ageRating: movie.ageRatingLabel,
-                        onTap: () => _openMovieDetails(context, movie),
-                        onPlayTap: () {},
-                        onMoreTap: () => _openMovieDetails(context, movie),
+                        menuSubtitle: hasActiveAccess ? null : movie.priceLabel,
+                        showPlayAction: hasActiveAccess,
+                        isPlayLoading: isOpening,
+                        onTap: isOpening ? null : openMovie,
+                        onPlayTap: hasActiveAccess && !isOpening
+                            ? () => _openMoviePlayer(movie)
+                            : null,
+                        onMoreTap: isOpening ? null : openMovie,
                       );
                     },
                   ),
